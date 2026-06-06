@@ -1195,6 +1195,8 @@ function renderSettings() {
   html += '<div class="settings-section"><h3>💾 数据管理</h3>';
   html += '<div class="settings-row"><span><span class="s-label">导出 CSV</span><br><span class="s-desc">下载所有交易记录为CSV文件</span></span><button class="btn btn-secondary" id="btn-export" style="flex:none;">导出</button></div>';
   html += '<div class="settings-row"><span><span class="s-label">导入 CSV</span><br><span class="s-desc">从CSV文件导入交易记录</span></span><button class="btn btn-secondary" id="btn-import" style="flex:none;">导入</button></div>';
+  html += '<div class="settings-row"><span><span class="s-label">📋 复制数据</span><br><span class="s-desc">复制全部数据到剪贴板，可跨设备粘贴</span></span><button class="btn btn-secondary" id="btn-copy-data" style="flex:none;">复制</button></div>';
+  html += '<div class="settings-row"><span><span class="s-label">📥 粘贴导入</span><br><span class="s-desc">从剪贴板粘贴数据恢复</span></span><button class="btn btn-secondary" id="btn-paste-import" style="flex:none;">导入</button></div>';
   html += '<div class="settings-row"><span><span class="s-label">清除所有数据</span><br><span class="s-desc" style="color:var(--color-danger);">此操作不可恢复</span></span><button class="btn btn-danger" id="btn-clear" style="flex:none;">清除</button></div>';
   html += '<div class="storage-info">📦 共 ' + state.trades.length + ' 条记录，存储用量约 ' + getStorageUsage() + '</div>';
   html += '</div>';
@@ -1782,6 +1784,66 @@ function showConfirm(msg, callback) {
 function hideConfirm() {
   document.getElementById('confirm-overlay').classList.remove('open');
   state.confirmCallback = null;
+}
+
+// Copy all data as JSON to clipboard (for cross-device sync)
+function copyAllDataToClipboard() {
+  const trades = loadTrades();
+  const settings = loadSettings();
+  const data = { version: 1, exportedAt: new Date().toISOString(), trades: trades, settings: settings };
+  const json = JSON.stringify(data, null, 2);
+  copyToClipboard(json);
+  showToast('数据已复制 (' + trades.length + '笔交易) ✓\n可粘贴到微信/便签发给另一台设备');
+}
+
+// Paste import: show a textarea for user to paste JSON data
+function showPasteImportDialog() {
+  const overlay = document.getElementById('confirm-overlay');
+  const msg = document.getElementById('confirm-msg');
+  if (!overlay || !msg) return;
+
+  // Reuse confirm dialog for paste import
+  msg.innerHTML = '<div style="text-align:left;font-size:13px;">📥 粘贴数据导入<br><span style="font-size:11px;color:var(--color-text-muted);">从另一台设备复制数据后粘贴到下方</span></div><textarea id="paste-import-textarea" style="width:100%;height:120px;margin-top:8px;border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:8px;font-size:12px;font-family:monospace;resize:vertical;" placeholder="粘贴JSON数据..."></textarea><div id="paste-import-msg" style="font-size:11px;margin-top:4px;"></div>';
+  document.getElementById('confirm-ok').textContent = '导入';
+  document.getElementById('confirm-ok').className = 'btn btn-primary';
+
+  overlay.classList.add('open');
+  state.confirmCallback = function() {
+    const textarea = document.getElementById('paste-import-textarea');
+    const statusEl = document.getElementById('paste-import-msg');
+    if (!textarea || !textarea.value.trim()) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#E53E3E;">请先粘贴数据</span>';
+      return;
+    }
+    try {
+      const data = JSON.parse(textarea.value.trim());
+      if (!data.trades || !Array.isArray(data.trades)) throw new Error('数据格式不正确');
+      const existing = loadTrades();
+      const existingIds = new Set(existing.map(t => t.id));
+      let imported = 0, skipped = 0;
+      for (let t of data.trades) {
+        if (existingIds.has(t.id)) { skipped++; continue; }
+        existing.push(t);
+        existingIds.add(t.id);
+        imported++;
+      }
+      saveTrades(existing);
+      refreshState();
+      render();
+      hideConfirm();
+      document.getElementById('confirm-ok').textContent = '确认删除';
+      document.getElementById('confirm-ok').className = 'btn btn-danger';
+      showToast('导入 ' + imported + ' 笔，跳过 ' + skipped + ' 笔重复 ✓');
+    } catch (e) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#E53E3E;">❌ 数据格式错误，请确认粘贴的是完整JSON</span>';
+    }
+  };
+}
+
+function resetConfirmDialog() {
+  document.getElementById('confirm-ok').textContent = '确认删除';
+  document.getElementById('confirm-ok').className = 'btn btn-danger';
+  document.getElementById('confirm-msg').textContent = '';
 }
 
 /* ================================================================
@@ -2948,7 +3010,10 @@ function setupEvents() {
   document.getElementById('modal-save').addEventListener('click', saveForm);
 
   // Confirm
-  document.getElementById('confirm-cancel').addEventListener('click', hideConfirm);
+  document.getElementById('confirm-cancel').addEventListener('click', function() {
+    hideConfirm();
+    resetConfirmDialog();
+  });
   document.getElementById('confirm-ok').addEventListener('click', function() {
     if (state.confirmCallback) state.confirmCallback();
     hideConfirm();
@@ -3306,6 +3371,16 @@ function setupEvents() {
     // Import
     if (e.target.closest('#btn-import')) {
       document.getElementById('csv-file-input').click();
+      return;
+    }
+    // Copy all data
+    if (e.target.closest('#btn-copy-data')) {
+      copyAllDataToClipboard();
+      return;
+    }
+    // Paste import
+    if (e.target.closest('#btn-paste-import')) {
+      showPasteImportDialog();
       return;
     }
     // Clear data
