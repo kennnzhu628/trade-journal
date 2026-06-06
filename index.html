@@ -1,0 +1,3542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1A202C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="交易日志">
+<title>交易日志</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+/* ====== CSS Variables ====== */
+:root {
+  --color-profit: #E53E3E;
+  --color-loss: #38A169;
+  --color-profit-bg: #FED7D7;
+  --color-loss-bg: #C6F6D5;
+  --color-profit-light: #FFF5F5;
+  --color-loss-light: #F0FFF4;
+  --color-bg: #F7FAFC;
+  --color-surface: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-text: #1A202C;
+  --color-text-secondary: #718096;
+  --color-text-muted: #A0AEC0;
+  --color-accent: #3182CE;
+  --color-accent-light: #EBF8FF;
+  --color-danger: #E53E3E;
+  --color-warning: #D69E2E;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-modal: 0 8px 32px rgba(0,0,0,0.18);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC', sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* ====== Reset & Base ====== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-family: var(--font); font-size: 15px; color: var(--color-text); background: var(--color-bg); -webkit-tap-highlight-color: transparent; }
+body { max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; position: relative; overflow-x: hidden; }
+input, select, textarea, button { font-family: inherit; font-size: inherit; }
+button { cursor: pointer; border: none; background: none; }
+a { color: inherit; text-decoration: none; }
+
+/* ====== Header ====== */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--color-surface); border-bottom: 1px solid var(--color-border);
+  padding: 10px 16px; display: flex; align-items: center; justify-content: space-between;
+  height: 48px;
+}
+.header-title { font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
+.header-actions { display: flex; gap: 8px; }
+.header-btn {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-text-secondary); font-size: 18px; transition: background 0.15s;
+}
+.header-btn:active { background: var(--color-border); }
+
+/* ====== Bottom Nav ====== */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px; z-index: 100;
+  background: var(--color-surface); border-top: 1px solid var(--color-border);
+  display: flex; padding-bottom: var(--safe-bottom);
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 6px 0 4px; color: var(--color-text-muted); font-size: 10px;
+  transition: color 0.15s; gap: 2px; min-height: 48px;
+}
+.nav-item.active { color: var(--color-accent); }
+.nav-icon { font-size: 20px; line-height: 1; }
+
+/* ====== Main Content ====== */
+.main { flex: 1; padding-bottom: calc(64px + var(--safe-bottom)); overflow-y: auto; }
+.tab-content { display: none; padding: 12px; }
+.tab-content.active { display: block; }
+
+/* ====== Filter Bar ====== */
+.filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+.filter-chip {
+  padding: 5px 12px; border-radius: var(--radius-full); font-size: 12px;
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  color: var(--color-text-secondary); white-space: nowrap; transition: all 0.15s;
+}
+.filter-chip:active, .filter-chip.active { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+.search-input {
+  flex: 1; min-width: 120px; padding: 6px 10px; border-radius: var(--radius-full);
+  border: 1px solid var(--color-border); background: var(--color-surface);
+  font-size: 13px; outline: none;
+}
+.search-input:focus { border-color: var(--color-accent); }
+.sort-select {
+  padding: 5px 8px; border-radius: var(--radius-sm); border: 1px solid var(--color-border);
+  background: var(--color-surface); font-size: 12px; color: var(--color-text-secondary);
+}
+
+/* ====== Trade Card ====== */
+.trade-card {
+  background: var(--color-surface); border-radius: var(--radius-md);
+  padding: 12px 14px; margin-bottom: 10px;
+  box-shadow: var(--shadow-card); position: relative; overflow: hidden;
+}
+.trade-card .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.trade-card .symbol { font-size: 16px; font-weight: 700; }
+.trade-card .badge {
+  padding: 2px 8px; border-radius: var(--radius-full); font-size: 11px; font-weight: 600;
+}
+.badge-long { background: var(--color-profit-bg); color: var(--color-profit); }
+.badge-short { background: var(--color-loss-bg); color: var(--color-loss); }
+.badge-open { background: #FEFCBF; color: #975A16; }
+.badge-closed { background: #E2E8F0; color: #4A5568; }
+.trade-card .card-meta { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; }
+.trade-card .price-row { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 4px; }
+.trade-card .price-row .arrow { color: var(--color-text-muted); font-size: 12px; }
+.trade-card .date-row { font-size: 11px; color: var(--color-text-muted); margin-bottom: 6px; }
+.trade-card .pnl-row { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.trade-card .pnl-profit { color: var(--color-profit); }
+.trade-card .pnl-loss { color: var(--color-loss); }
+.trade-card .pnl-neutral { color: var(--color-text-secondary); }
+.trade-card .fee-row { font-size: 11px; color: var(--color-text-muted); margin-bottom: 4px; }
+.trade-card .tags-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.tag-chip {
+  padding: 2px 8px; border-radius: var(--radius-full); font-size: 10px;
+  background: var(--color-accent-light); color: var(--color-accent);
+}
+.trade-card .reasons-row { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 2px; line-height: 1.5; }
+.trade-card .card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.card-btn {
+  padding: 4px 10px; border-radius: var(--radius-sm); font-size: 12px;
+  color: var(--color-text-secondary); transition: all 0.15s;
+}
+.card-btn:active { background: var(--color-border); }
+.card-btn.danger { color: var(--color-danger); }
+
+/* ====== FAB ====== */
+.fab {
+  position: fixed; bottom: calc(72px + var(--safe-bottom)); right: 16px;
+  width: 52px; height: 52px; border-radius: 50%; background: var(--color-accent);
+  color: #fff; font-size: 26px; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(49,130,206,0.4); z-index: 90;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.fab:active { transform: scale(0.95); box-shadow: 0 2px 8px rgba(49,130,206,0.3); }
+@media (min-width: 481px) { .fab { right: calc(50vw - 224px); } }
+
+/* ====== Modal ====== */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.4);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal-sheet {
+  background: var(--color-surface); border-radius: 16px 16px 0 0;
+  width: 100%; max-width: 480px; max-height: 90dvh;
+  display: flex; flex-direction: column;
+  transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+}
+.modal-overlay.open .modal-sheet { transform: translateY(0); }
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--color-border);
+  position: sticky; top: 0; background: var(--color-surface); z-index: 1;
+}
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close { font-size: 22px; color: var(--color-text-secondary); padding: 4px 8px; }
+.modal-body { overflow-y: auto; padding: 16px; flex: 1; }
+.modal-footer {
+  display: flex; gap: 10px; padding: 12px 16px;
+  border-top: 1px solid var(--color-border); padding-bottom: calc(12px + var(--safe-bottom));
+}
+.btn {
+  flex: 1; padding: 11px 16px; border-radius: var(--radius-md); font-size: 15px; font-weight: 600;
+  text-align: center; transition: all 0.15s;
+}
+.btn-primary { background: var(--color-accent); color: #fff; }
+.btn-primary:active { opacity: 0.85; }
+.btn-secondary { background: var(--color-border); color: var(--color-text); }
+.btn-secondary:active { background: #CBD5E0; }
+.btn-danger { background: var(--color-danger); color: #fff; }
+.btn-danger:active { opacity: 0.85; }
+
+/* ====== Form Fields ====== */
+.form-group { margin-bottom: 14px; }
+.form-label { display: block; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 4px; }
+.form-label .required { color: var(--color-danger); margin-left: 1px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface); font-size: 15px; outline: none; transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--color-accent); }
+.form-textarea { resize: vertical; min-height: 60px; }
+.form-hint { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+.form-row { display: flex; gap: 10px; }
+.form-row > * { flex: 1; }
+.segmented {
+  display: flex; border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden;
+}
+.segmented-btn {
+  flex: 1; padding: 8px 6px; text-align: center; font-size: 13px; font-weight: 500;
+  color: var(--color-text-secondary); background: var(--color-surface); transition: all 0.15s;
+  border-right: 1px solid var(--color-border);
+}
+.segmented-btn:last-child { border-right: none; }
+.segmented-btn.active { background: var(--color-accent); color: #fff; }
+.tags-input-wrap { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 4px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); min-height: 40px; }
+.tags-input-wrap .tag-chip { display: inline-flex; align-items: center; gap: 2px; }
+.tag-remove { cursor: pointer; font-size: 14px; line-height: 1; opacity: 0.6; }
+.tag-remove:hover { opacity: 1; }
+.tags-input { border: none; outline: none; flex: 1; min-width: 60px; font-size: 13px; padding: 2px 4px; background: transparent; }
+.cond-field { display: none; }
+.cond-field.show { display: block; }
+
+/* ====== Positions ====== */
+.summary-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.summary-card {
+  background: var(--color-surface); border-radius: var(--radius-md);
+  padding: 12px 10px; text-align: center; box-shadow: var(--shadow-sm);
+}
+.summary-card .s-val { font-size: 20px; font-weight: 700; }
+.summary-card .s-label { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.position-card {
+  background: var(--color-surface); border-radius: var(--radius-md);
+  padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow-card);
+}
+.position-card .pos-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.position-card .pos-symbol { font-size: 15px; font-weight: 700; }
+.position-card .pos-days { font-size: 11px; color: var(--color-text-muted); }
+.position-card .pos-row { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 3px; display: flex; justify-content: space-between; }
+.position-card .pos-pnl { font-size: 16px; font-weight: 700; margin-top: 4px; }
+.position-card .mark-input { width: 100px; padding: 3px 6px; border: 1px solid var(--color-border); border-radius: 4px; font-size: 13px; text-align: right; }
+
+/* ====== Statistics ====== */
+.period-selector { display: flex; gap: 6px; margin-bottom: 14px; }
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.kpi-card {
+  background: var(--color-surface); border-radius: var(--radius-md); padding: 14px;
+  box-shadow: var(--shadow-sm); text-align: center;
+}
+.kpi-card .kpi-val { font-size: 22px; font-weight: 700; }
+.kpi-card .kpi-label { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.kpi-card .kpi-sub { font-size: 12px; color: var(--color-text-secondary); margin-top: 4px; }
+.chart-container { background: var(--color-surface); border-radius: var(--radius-md); padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow-sm); text-align: center; }
+.chart-container canvas { width: 100%; max-width: 340px; }
+.chart-title { font-size: 13px; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 10px; }
+.breakdown { background: var(--color-surface); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow-sm); }
+.breakdown h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.breakdown-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--color-border); }
+.breakdown-row:last-child { border-bottom: none; }
+
+/* ====== Settings ====== */
+.settings-section { background: var(--color-surface); border-radius: var(--radius-md); padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow-sm); }
+.settings-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.settings-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
+.settings-row .s-label { font-size: 14px; }
+.settings-row .s-desc { font-size: 11px; color: var(--color-text-muted); }
+.storage-info { font-size: 12px; color: var(--color-text-secondary); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--color-border); }
+
+/* ====== Confirm Dialog ====== */
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.confirm-overlay.open { opacity: 1; pointer-events: auto; }
+.confirm-box {
+  background: var(--color-surface); border-radius: var(--radius-lg); padding: 20px;
+  width: 280px; text-align: center; box-shadow: var(--shadow-modal);
+}
+.confirm-box .confirm-msg { font-size: 15px; margin-bottom: 16px; line-height: 1.5; }
+.confirm-box .confirm-btns { display: flex; gap: 10px; }
+
+/* ====== Empty State ====== */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--color-text-muted); }
+.empty-icon { font-size: 56px; margin-bottom: 12px; }
+.empty-text { font-size: 15px; }
+
+/* ====== Toast ====== */
+.toast {
+  position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 400;
+  background: #1A202C; color: #fff; padding: 10px 20px; border-radius: var(--radius-full);
+  font-size: 13px; opacity: 0; transition: opacity 0.25s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* ====== Install Banner ====== */
+.install-banner {
+  display: none; background: var(--color-accent-light); border-radius: var(--radius-md);
+  padding: 10px 14px; margin-bottom: 10px; align-items: center; justify-content: space-between;
+}
+.install-banner.show { display: flex; }
+.install-banner .ib-text { font-size: 13px; color: var(--color-accent); font-weight: 500; }
+.install-banner .ib-btn {
+  padding: 6px 14px; background: var(--color-accent); color: #fff;
+  border-radius: var(--radius-full); font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+
+/* ====== Copy Dialog ====== */
+.copy-dialog-body { padding: 14px 16px; }
+.copy-preview {
+  background: #F1F5F9; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6;
+  white-space: pre-wrap; max-height: 280px; overflow-y: auto; color: var(--color-text);
+  user-select: all; -webkit-user-select: all;
+}
+.copy-preview .cp-profit { color: var(--color-profit); font-weight: 600; }
+.copy-preview .cp-loss { color: var(--color-loss); font-weight: 600; }
+.copy-preview .cp-header { font-weight: 700; font-size: 14px; font-family: var(--font); }
+.copy-preview .cp-divider { color: var(--color-text-muted); }
+
+/* ====== Smart Paste ====== */
+.smart-paste-toggle {
+  display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+  background: var(--color-accent-light); border-radius: var(--radius-md);
+  margin-bottom: 12px; cursor: pointer; font-size: 13px; color: var(--color-accent);
+  font-weight: 500; transition: background 0.15s;
+}
+.smart-paste-toggle:active { background: #D6EEFB; }
+.smart-paste-section { display: none; margin-bottom: 12px; }
+.smart-paste-section.show { display: block; }
+.smart-paste-area {
+  width: 100%; padding: 10px; border: 1px solid var(--color-accent); border-radius: var(--radius-sm);
+  font-size: 13px; font-family: var(--font-mono); resize: vertical; min-height: 80px;
+  background: var(--color-surface); outline: none;
+}
+.smart-paste-actions { display: flex; gap: 8px; margin-top: 8px; }
+.smart-paste-result { font-size: 11px; color: var(--color-text-secondary); margin-top: 6px; }
+.smart-paste-tab.active { background: var(--color-accent); color: #fff; }
+.smart-paste-img-drop {
+  border: 2px dashed var(--color-border); border-radius: var(--radius-md);
+  padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.smart-paste-img-drop:hover, .smart-paste-img-drop.drag-over { border-color: var(--color-accent); background: var(--color-accent-light); }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* ====== Image Attachments ====== */
+.img-drop-zone {
+  border: 2px dashed var(--color-border); border-radius: var(--radius-sm);
+  padding: 10px; text-align: center; cursor: pointer; transition: all 0.15s;
+  font-size: 12px; color: var(--color-text-muted);
+}
+.img-drop-zone:hover { border-color: var(--color-accent); background: var(--color-accent-light); }
+.img-thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.img-thumb-wrap { position: relative; width: 60px; height: 60px; border-radius: 4px; overflow: hidden; border: 1px solid var(--color-border); }
+.img-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.img-thumb-remove {
+  position: absolute; top: 0; right: 0; width: 18px; height: 18px;
+  background: rgba(0,0,0,0.6); color: #fff; font-size: 12px; line-height: 18px;
+  text-align: center; cursor: pointer; border-radius: 0 4px 0 0;
+}
+.card-images { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.card-img {
+  width: 48px; height: 48px; border-radius: 4px; object-fit: cover;
+  border: 1px solid var(--color-border); cursor: pointer; transition: transform 0.15s;
+}
+.card-img:active { transform: scale(2); z-index: 10; position: relative; }
+.card-img-zoom { transform: scale(3) !important; z-index: 50 !important; position: relative; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.card-img-count { font-size: 10px; color: var(--color-text-muted); margin-left: 2px; }
+
+/* ====== Utilities ====== */
+.text-profit { color: var(--color-profit); }
+.text-loss { color: var(--color-loss); }
+.text-muted { color: var(--color-text-muted); }
+.mt-sm { margin-top: 6px; }
+.mt-md { margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <span class="header-title">📊 交易日志</span>
+  <div class="header-actions">
+    <button class="header-btn" id="btn-toggle-filter" title="筛选">🔍</button>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main class="main" id="main-content"></main>
+
+<!-- FAB -->
+<button class="fab" id="fab-add" title="添加交易">+</button>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="nav-item active" data-tab="0">
+    <span class="nav-icon">📋</span><span>交易</span>
+  </button>
+  <button class="nav-item" data-tab="1">
+    <span class="nav-icon">💼</span><span>持仓</span>
+  </button>
+  <button class="nav-item" data-tab="2">
+    <span class="nav-icon">📈</span><span>统计</span>
+  </button>
+  <button class="nav-item" data-tab="3">
+    <span class="nav-icon">⚙️</span><span>设置</span>
+  </button>
+</nav>
+
+<!-- Trade Form Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-sheet" id="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">添加交易</span>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="modal-cancel">取消</button>
+      <button class="btn btn-primary" id="modal-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btns">
+      <button class="btn btn-secondary" id="confirm-cancel">取消</button>
+      <button class="btn btn-danger" id="confirm-ok">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Copy Dialog -->
+<div class="modal-overlay" id="copy-dialog-overlay">
+  <div class="modal-sheet" id="copy-dialog-sheet">
+    <div class="modal-header">
+      <span class="modal-title">📋 复制交易记录</span>
+      <button class="modal-close" id="copy-dialog-close">✕</button>
+    </div>
+    <div class="modal-body copy-dialog-body">
+      <div class="form-label" style="margin-bottom:4px;">预览内容</div>
+      <div class="copy-preview" id="copy-preview-text"></div>
+      <div class="form-group" style="margin-top:12px;">
+        <label class="form-label">复盘笔记 <span class="form-hint">(盈亏原因、经验教训等)</span></label>
+        <textarea class="form-textarea" id="copy-review-notes" placeholder="例：这笔交易盈利是因为.../亏损的原因是没有止损..." rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="copy-dialog-cancel">取消</button>
+      <button class="btn btn-primary" id="copy-dialog-copy">📋 仅复制</button>
+      <button class="btn btn-primary" id="copy-dialog-save-copy">💾 保存并复制</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Hidden file input for CSV import -->
+<input type="file" id="csv-file-input" accept=".csv" style="display:none;">
+
+<script>
+/* ================================================================
+   SECTION 1: Constants & Configuration
+   ================================================================ */
+const STORAGE_KEY_TRADES = 'trade-journal-trades';
+const STORAGE_KEY_SETTINGS = 'trade-journal-settings';
+
+const ASSET_TYPES = {
+  stock: '股票',
+  crypto: '加密货币',
+  forex: '外汇',
+  futures: '期货',
+};
+
+const DEFAULT_SETTINGS = {
+  colorScheme: 'chinese',
+  defaultCurrency: 'CNY',
+};
+
+const SORT_OPTIONS = [
+  { value: 'date-desc', label: '日期↓' },
+  { value: 'date-asc', label: '日期↑' },
+  { value: 'pnl-desc', label: '盈亏↓' },
+  { value: 'pnl-asc', label: '盈亏↑' },
+];
+
+// Currency definitions with symbols and exchange rates (approximate, to CNY)
+const CURRENCIES = {
+  CNY: { symbol: '¥', name: '人民币', rate: 1 },
+  USD: { symbol: '$', name: '美元', rate: 7.25 },
+  USDT:{ symbol: '₮', name: 'USDT', rate: 7.25 },
+  HKD: { symbol: 'HK$', name: '港币', rate: 0.93 },
+  JPY: { symbol: '¥', name: '日元', rate: 0.048 },
+  EUR: { symbol: '€', name: '欧元', rate: 7.90 },
+  GBP: { symbol: '£', name: '英镑', rate: 9.20 },
+  KRW: { symbol: '₩', name: '韩元', rate: 0.0054 },
+};
+
+// Exchange rates to CNY (approximate reference, updated 2026)
+const EXCHANGE_RATES = {};
+for (const [code, info] of Object.entries(CURRENCIES)) {
+  EXCHANGE_RATES[code] = info.rate;
+}
+
+function getCurrencySymbol(code) {
+  return (CURRENCIES[code] && CURRENCIES[code].symbol) || '¥';
+}
+
+function convertCurrency(amount, from, to) {
+  if (!amount || from === to) return amount;
+  const rateFrom = EXCHANGE_RATES[from] || 1;
+  const rateTo = EXCHANGE_RATES[to] || 1;
+  return amount * rateFrom / rateTo;
+}
+
+/* ================================================================
+   SECTION 2: Utility Functions
+   ================================================================ */
+function generateId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
+function formatCurrency(val, decimals, currencyCode) {
+  decimals = decimals !== undefined ? decimals : 2;
+  if (val == null || isNaN(val)) return '--';
+  const abs = Math.abs(val);
+  const sign = val < 0 ? '-' : (val > 0 ? '+' : '');
+  const formatted = abs.toFixed(decimals);
+  const parts = formatted.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const sym = getCurrencySymbol(currencyCode || 'CNY');
+  if (sym === '¥' && (currencyCode === 'JPY' || currencyCode === 'CNY')) {
+    return sign + '¥' + parts.join('.');
+  }
+  return sign + sym + parts.join('.');
+}
+
+function formatPct(val, decimals) {
+  decimals = decimals !== undefined ? decimals : 2;
+  if (val == null || isNaN(val)) return '--';
+  const sign = val > 0 ? '+' : '';
+  return sign + val.toFixed(decimals) + '%';
+}
+
+function formatDate(isoStr) {
+  if (!isoStr) return '--';
+  return isoStr; // already YYYY-MM-DD
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function debounce(fn, ms) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), ms);
+  };
+}
+
+/* ================================================================
+   SECTION 2b: P&L Calculation
+   ================================================================ */
+function calcPnL(trade) {
+  // Only for closed trades with both prices
+  if (trade.status !== 'closed' || trade.entryPrice == null || trade.exitPrice == null) return null;
+  const entry = parseFloat(trade.entryPrice);
+  const exit = parseFloat(trade.exitPrice);
+  const qty = parseFloat(trade.quantity);
+  const fees = parseFloat(trade.fees) || 0;
+  if (isNaN(entry) || isNaN(exit) || isNaN(qty) || entry === 0) return null;
+
+  let gross;
+  if (trade.direction === 'short') {
+    gross = (entry - exit) * qty;
+  } else {
+    gross = (exit - entry) * qty;
+  }
+  const net = gross - fees;
+  const pct = (gross / (entry * qty)) * 100;
+  return { gross, net, pct };
+}
+
+function calcUnrealizedPnL(trade) {
+  if (trade.status !== 'open' || trade.markPrice == null || trade.entryPrice == null) return null;
+  const entry = parseFloat(trade.entryPrice);
+  const mark = parseFloat(trade.markPrice);
+  const qty = parseFloat(trade.quantity);
+  if (isNaN(entry) || isNaN(mark) || isNaN(qty) || entry === 0) return null;
+
+  let gross;
+  if (trade.direction === 'short') {
+    gross = (entry - mark) * qty;
+  } else {
+    gross = (mark - entry) * qty;
+  }
+  const pct = (gross / (entry * qty)) * 100;
+  return { gross, pct };
+}
+
+// Get effective P&L: manual override if set, otherwise calculated
+function getTradePnL(trade) {
+  if (trade.manualPnL != null) return trade.manualPnL;
+  const p = calcPnL(trade);
+  return p ? p.net : null;
+}
+
+/* ================================================================
+   SECTION 3: Storage Layer
+   ================================================================ */
+function loadTrades() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TRADES);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveTrades(trades) {
+  try {
+    localStorage.setItem(STORAGE_KEY_TRADES, JSON.stringify(trades));
+  } catch (e) {
+    showToast('存储空间不足，请导出数据后清理旧记录');
+  }
+}
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SETTINGS);
+    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+  } catch (e) {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+function saveSettings(settings) {
+  try {
+    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+  } catch (e) {}
+}
+
+function addTrade(data) {
+  const trades = loadTrades();
+  const now = new Date().toISOString();
+  const trade = {
+    ...data,
+    id: generateId(),
+    createdAt: now,
+    updatedAt: now,
+  };
+  // Ensure defaults
+  trade.tags = trade.tags || [];
+  trade.fees = parseFloat(trade.fees) || 0;
+  trade.markPrice = trade.status === 'open' ? (parseFloat(trade.markPrice) || null) : null;
+  trade.exitPrice = trade.status === 'closed' ? (parseFloat(trade.exitPrice) || null) : null;
+  trade.exitDate = trade.status === 'closed' ? (trade.exitDate || null) : null;
+  trade.lossReason = trade.lossReason || '';
+  trade.entryReason = trade.entryReason || '';
+  trade.notes = trade.notes || '';
+  trade.reviewNotes = trade.reviewNotes || '';
+  trade.images = trade.images || [];
+  trade.leverage = parseFloat(trade.leverage) || null;
+  trade.volume = parseFloat(trade.volume) || null;
+  trade.avgPrice = parseFloat(trade.avgPrice) || null;
+  trade.currency = trade.currency || state.settings.defaultCurrency || 'CNY';
+  trade.manualPnL = parseFloat(trade.manualPnL) || null;
+  trades.push(trade);
+  saveTrades(trades);
+  return trade;
+}
+
+function updateTrade(id, data) {
+  const trades = loadTrades();
+  const idx = trades.findIndex(t => t.id === id);
+  if (idx === -1) return null;
+  const updated = {
+    ...trades[idx],
+    ...data,
+    id: trades[idx].id,
+    createdAt: trades[idx].createdAt,
+    updatedAt: new Date().toISOString(),
+  };
+  // Sync conditional fields
+  if (updated.status === 'open') {
+    updated.exitPrice = null;
+    updated.exitDate = null;
+  } else {
+    updated.markPrice = null;
+  }
+  updated.tags = updated.tags || [];
+  updated.fees = parseFloat(updated.fees) || 0;
+  updated.entryReason = updated.entryReason || '';
+  updated.lossReason = updated.lossReason || '';
+  updated.notes = updated.notes || '';
+  updated.reviewNotes = updated.reviewNotes || '';
+  updated.images = updated.images || [];
+  updated.leverage = parseFloat(updated.leverage) || null;
+  updated.volume = parseFloat(updated.volume) || null;
+  updated.avgPrice = parseFloat(updated.avgPrice) || null;
+  updated.currency = updated.currency || state.settings.defaultCurrency || 'CNY';
+  updated.manualPnL = updated.manualPnL !== undefined ? (parseFloat(updated.manualPnL) || null) : trades[idx].manualPnL;
+  trades[idx] = updated;
+  saveTrades(trades);
+  return updated;
+}
+
+function deleteTrade(id) {
+  const trades = loadTrades();
+  const filtered = trades.filter(t => t.id !== id);
+  saveTrades(filtered);
+}
+
+function getStorageUsage() {
+  let bytes = 0;
+  for (let key in localStorage) {
+    if (localStorage.hasOwnProperty(key)) {
+      bytes += localStorage[key].length * 2; // UTF-16
+    }
+  }
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/* ================================================================
+   SECTION 4: Application State
+   ================================================================ */
+let state = {
+  trades: [],
+  settings: {},
+  activeTab: 0,
+  filters: {
+    assetType: 'all',
+    status: 'all',
+    search: '',
+    sort: 'date-desc',
+  },
+  filterVisible: false,
+  editingId: null,
+  modalOpen: false,
+  confirmCallback: null,
+};
+
+function refreshState() {
+  state.trades = loadTrades();
+  state.settings = loadSettings();
+  applyColorScheme();
+}
+
+function applyColorScheme() {
+  const root = document.documentElement;
+  const scheme = state.settings.colorScheme || 'chinese';
+  if (scheme === 'western') {
+    root.style.setProperty('--color-profit', '#38A169');
+    root.style.setProperty('--color-loss', '#E53E3E');
+    root.style.setProperty('--color-profit-bg', '#C6F6D5');
+    root.style.setProperty('--color-loss-bg', '#FED7D7');
+    root.style.setProperty('--color-profit-light', '#F0FFF4');
+    root.style.setProperty('--color-loss-light', '#FFF5F5');
+  } else {
+    root.style.setProperty('--color-profit', '#E53E3E');
+    root.style.setProperty('--color-loss', '#38A169');
+    root.style.setProperty('--color-profit-bg', '#FED7D7');
+    root.style.setProperty('--color-loss-bg', '#C6F6D5');
+    root.style.setProperty('--color-profit-light', '#FFF5F5');
+    root.style.setProperty('--color-loss-light', '#F0FFF4');
+  }
+}
+
+/* ================================================================
+   SECTION 5: Rendering Engine
+   ================================================================ */
+function render() {
+  const main = document.getElementById('main-content');
+  switch (state.activeTab) {
+    case 0: main.innerHTML = renderTradeList(); break;
+    case 1: main.innerHTML = renderPositions(); break;
+    case 2: main.innerHTML = renderStatistics(); break;
+    case 3: main.innerHTML = renderSettings(); break;
+  }
+  // Update nav
+  document.querySelectorAll('.nav-item').forEach((el, i) => {
+    el.classList.toggle('active', i === state.activeTab);
+  });
+  // Show/hide FAB
+  const fab = document.getElementById('fab-add');
+  fab.style.display = (state.activeTab === 0) ? 'flex' : 'none';
+  // Draw charts if on stats tab
+  if (state.activeTab === 2) {
+    setTimeout(drawCharts, 50);
+  }
+}
+
+/* ---- Tab 0: Trade List ---- */
+function renderTradeList() {
+  let trades = [...state.trades];
+
+  // Apply filters
+  if (state.filters.assetType !== 'all') {
+    trades = trades.filter(t => t.assetType === state.filters.assetType);
+  }
+  if (state.filters.status !== 'all') {
+    trades = trades.filter(t => t.status === state.filters.status);
+  }
+  if (state.filters.search) {
+    const q = state.filters.search.toLowerCase();
+    trades = trades.filter(t =>
+      t.symbol.toLowerCase().includes(q) ||
+      (t.tags || []).some(tag => tag.toLowerCase().includes(q)) ||
+      (t.entryReason || '').toLowerCase().includes(q) ||
+      (t.notes || '').toLowerCase().includes(q)
+    );
+  }
+
+  // Sort
+  trades.sort((a, b) => {
+    switch (state.filters.sort) {
+      case 'date-asc': return (a.entryDate || '') > (b.entryDate || '') ? 1 : -1;
+      case 'pnl-desc': {
+        const pa = calcPnL(a);
+        const pb = calcPnL(b);
+        return (pb?.net || 0) - (pa?.net || 0);
+      }
+      case 'pnl-asc': {
+        const pa = calcPnL(a);
+        const pb = calcPnL(b);
+        return (pa?.net || 0) - (pb?.net || 0);
+      }
+      case 'date-desc':
+      default:
+        return (a.entryDate || '') > (b.entryDate || '') ? -1 : 1;
+    }
+  });
+
+  let html = '';
+
+  // Filter bar
+  html += '<div class="filter-bar" id="filter-bar">';
+  // Asset type chips
+  html += '<button class="filter-chip' + (state.filters.assetType === 'all' ? ' active' : '') + '" data-filter="assetType" data-val="all">全部</button>';
+  for (let [val, label] of Object.entries(ASSET_TYPES)) {
+    html += '<button class="filter-chip' + (state.filters.assetType === val ? ' active' : '') + '" data-filter="assetType" data-val="' + val + '">' + label + '</button>';
+  }
+  html += '<span style="margin:0 2px;"></span>';
+  // Status chips
+  html += '<button class="filter-chip' + (state.filters.status === 'all' ? ' active' : '') + '" data-filter="status" data-val="all">全部状态</button>';
+  html += '<button class="filter-chip' + (state.filters.status === 'open' ? ' active' : '') + '" data-filter="status" data-val="open">持仓中</button>';
+  html += '<button class="filter-chip' + (state.filters.status === 'closed' ? ' active' : '') + '" data-filter="status" data-val="closed">已平仓</button>';
+  // Search
+  html += '<input class="search-input" id="search-input" type="text" placeholder="搜索标的/标签..." value="' + escapeHtml(state.filters.search) + '">';
+  // Sort
+  html += '<select class="sort-select" id="sort-select">';
+  for (let opt of SORT_OPTIONS) {
+    html += '<option value="' + opt.value + '"' + (state.filters.sort === opt.value ? ' selected' : '') + '>' + opt.label + '</option>';
+  }
+  html += '</select>';
+  html += '</div>';
+
+  // Trade count
+  html += '<div style="font-size:12px;color:var(--color-text-muted);margin-bottom:8px;">共 ' + trades.length + ' 条记录</div>';
+
+  // Empty state
+  if (trades.length === 0) {
+    html += '<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">暂无交易记录</div><div style="font-size:13px;margin-top:4px;">点击右下角 + 添加第一笔交易</div></div>';
+  } else {
+    for (let trade of trades) {
+      html += renderTradeCard(trade);
+    }
+  }
+
+  return html;
+}
+
+function renderTradeCard(trade) {
+  const pnl = calcPnL(trade);
+  const unrealized = calcUnrealizedPnL(trade);
+  const isLong = trade.direction === 'long';
+  const assetLabel = ASSET_TYPES[trade.assetType] || trade.assetType;
+  const tcur = trade.currency || 'CNY';
+
+  let html = '<div class="trade-card" data-id="' + trade.id + '">';
+
+  // Header
+  html += '<div class="card-header">';
+  html += '<span class="symbol">' + escapeHtml(trade.symbol) + '</span>';
+  html += '<div style="display:flex;gap:4px;">';
+  html += '<span class="badge ' + (isLong ? 'badge-long' : 'badge-short') + '">' + (isLong ? '📈 做多' : '📉 做空') + '</span>';
+  html += '<span class="badge ' + (trade.status === 'open' ? 'badge-open' : 'badge-closed') + '">' + (trade.status === 'open' ? '持仓中' : '已平仓') + '</span>';
+  html += '</div>';
+  html += '</div>';
+
+  // Meta
+  let metaParts = [assetLabel];
+  if (trade.leverage) metaParts.push(trade.leverage + 'x');
+  if (trade.volume) metaParts.push('量' + trade.volume);
+  if (trade.quantity) metaParts.push(trade.quantity + '份');
+  html += '<div class="card-meta">' + metaParts.join(' · ') + '</div>';
+
+  // Prices
+  html += '<div class="price-row">';
+  html += '<span>入场 <b>' + formatCurrency(trade.entryPrice, 2, tcur) + '</b></span>';
+  html += '<span class="arrow">→</span>';
+  if (trade.status === 'closed') {
+    html += '<span>出场 <b>' + formatCurrency(trade.exitPrice, 2, tcur) + '</b></span>';
+  } else if (trade.markPrice) {
+    html += '<span>标记 <b>' + formatCurrency(trade.markPrice, 2, tcur) + '</b></span>';
+  } else {
+    html += '<span class="text-muted">待出场</span>';
+  }
+  html += '</div>';
+
+  // Dates
+  html += '<div class="date-row">' + formatDate(trade.entryDate);
+  if (trade.status === 'closed' && trade.exitDate) {
+    html += ' → ' + formatDate(trade.exitDate);
+  }
+  html += '</div>';
+
+  // P&L (manual override takes priority)
+  if (trade.manualPnL != null) {
+    const mpnl = trade.manualPnL;
+    const cls = mpnl > 0 ? 'pnl-profit' : (mpnl < 0 ? 'pnl-loss' : 'pnl-neutral');
+    html += '<div class="pnl-row ' + cls + '">盈亏: ' + formatCurrency(mpnl, 2, tcur) + ' ✍️<span style="font-size:10px;color:var(--color-text-muted);">手动</span></div>';
+  } else if (pnl) {
+    const cls = pnl.net > 0 ? 'pnl-profit' : (pnl.net < 0 ? 'pnl-loss' : 'pnl-neutral');
+    html += '<div class="pnl-row ' + cls + '">盈亏: ' + formatCurrency(pnl.net, 2, tcur) + ' (' + formatPct(pnl.pct) + ')</div>';
+  } else if (unrealized) {
+    const cls = unrealized.gross > 0 ? 'pnl-profit' : (unrealized.gross < 0 ? 'pnl-loss' : 'pnl-neutral');
+    html += '<div class="pnl-row ' + cls + '">未实现: ' + formatCurrency(unrealized.gross, 2, tcur) + ' (' + formatPct(unrealized.pct) + ')</div>';
+  }
+
+  // Fees
+  if (trade.fees) {
+    html += '<div class="fee-row">手续费: ' + formatCurrency(trade.fees, 2, tcur) + '</div>';
+  }
+
+  // Tags
+  if (trade.tags && trade.tags.length > 0) {
+    html += '<div class="tags-row">';
+    for (let tag of trade.tags) {
+      html += '<span class="tag-chip">' + escapeHtml(tag) + '</span>';
+    }
+    html += '</div>';
+  }
+
+  // Reasons
+  if (trade.entryReason) {
+    html += '<div class="reasons-row">📌 开单理由: ' + escapeHtml(trade.entryReason) + '</div>';
+  }
+  if (trade.status === 'closed' && pnl && pnl.net < 0 && trade.lossReason) {
+    html += '<div class="reasons-row" style="color:var(--color-loss);">⚠️ 亏损原因: ' + escapeHtml(trade.lossReason) + '</div>';
+  }
+
+  // Image thumbnails
+  if (trade.images && trade.images.length > 0) {
+    html += '<div class="card-images">';
+    for (let i = 0; i < Math.min(trade.images.length, 4); i++) {
+      html += '<img class="card-img" src="' + trade.images[i] + '" alt="截图' + (i + 1) + '" title="点击查看大图" onclick="event.stopPropagation();this.classList.toggle(\'card-img-zoom\');">';
+    }
+    if (trade.images.length > 4) {
+      html += '<span class="card-img-count">+' + (trade.images.length - 4) + '张</span>';
+    }
+    html += '</div>';
+  }
+
+  // Actions
+  html += '<div class="card-actions">';
+  html += '<button class="card-btn btn-copy" data-id="' + trade.id + '">📋 复制</button>';
+  html += '<button class="card-btn btn-edit" data-id="' + trade.id + '">✏️ 编辑</button>';
+  html += '<button class="card-btn danger btn-delete" data-id="' + trade.id + '">🗑️ 删除</button>';
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+/* ---- Tab 1: Positions ---- */
+function renderPositions() {
+  const openTrades = state.trades.filter(t => t.status === 'open');
+  let html = '';
+
+  // Summary
+  let totalCost = 0;
+  let totalUnrealized = 0;
+  for (let t of openTrades) {
+    totalCost += (parseFloat(t.entryPrice) || 0) * (parseFloat(t.quantity) || 0);
+    const up = calcUnrealizedPnL(t);
+    if (up) totalUnrealized += up.gross;
+  }
+
+  html += '<div class="summary-bar">';
+  html += '<div class="summary-card"><div class="s-val">' + openTrades.length + '</div><div class="s-label">持仓数量</div></div>';
+  html += '<div class="summary-card"><div class="s-val">' + formatCurrency(totalCost, 0) + '</div><div class="s-label">总成本</div></div>';
+  const uCls = totalUnrealized > 0 ? 'text-profit' : (totalUnrealized < 0 ? 'text-loss' : '');
+  html += '<div class="summary-card"><div class="s-val ' + uCls + '">' + formatCurrency(totalUnrealized) + '</div><div class="s-label">未实现盈亏</div></div>';
+  html += '</div>';
+
+  if (openTrades.length === 0) {
+    html += '<div class="empty-state"><div class="empty-icon">💼</div><div class="empty-text">暂无持仓</div></div>';
+  } else {
+    for (let trade of openTrades) {
+      html += renderPositionCard(trade);
+    }
+  }
+
+  return html;
+}
+
+function renderPositionCard(trade) {
+  const unrealized = calcUnrealizedPnL(trade);
+  const isLong = trade.direction === 'long';
+  const days = trade.entryDate ? Math.floor((Date.now() - new Date(trade.entryDate + 'T00:00:00')) / 86400000) : '--';
+
+  let html = '<div class="position-card" data-id="' + trade.id + '">';
+  html += '<div class="pos-header">';
+  html += '<span class="pos-symbol">' + escapeHtml(trade.symbol) + ' <span style="font-size:12px;color:var(--color-text-muted);">' + (isLong ? '做多' : '做空') + '</span></span>';
+  html += '<span class="pos-days">已持仓 ' + days + ' 天</span>';
+  html += '</div>';
+  const pcur = trade.currency || 'CNY';
+  html += '<div class="pos-row"><span>入场均价</span><span><b>' + formatCurrency(trade.entryPrice, 2, pcur) + '</b></span></div>';
+  html += '<div class="pos-row"><span>标记价格</span><span><input class="mark-input" type="number" step="any" value="' + (trade.markPrice || '') + '" placeholder="输入市价" data-id="' + trade.id + '"></span></div>';
+  html += '<div class="pos-row"><span>数量</span><span>' + trade.quantity + '</span></div>';
+  if (unrealized) {
+    const cls = unrealized.gross > 0 ? 'text-profit' : (unrealized.gross < 0 ? 'text-loss' : '');
+    html += '<div class="pos-pnl ' + cls + '">未实现盈亏: ' + formatCurrency(unrealized.gross, 2, pcur) + ' (' + formatPct(unrealized.pct) + ')</div>';
+  } else {
+    html += '<div class="pos-pnl text-muted">输入标记价格计算盈亏</div>';
+  }
+  if (trade.entryReason) {
+    html += '<div style="font-size:12px;color:var(--color-text-secondary);margin-top:6px;">📌 ' + escapeHtml(trade.entryReason) + '</div>';
+  }
+  html += '<div class="card-actions">';
+  html += '<button class="card-btn btn-copy" data-id="' + trade.id + '">📋 复制</button>';
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+
+/* ---- Tab 2: Statistics ---- */
+function renderStatistics() {
+  const closedTrades = state.trades.filter(t => t.status === 'closed');
+  let html = '';
+
+  // Period selector
+  html += '<div class="period-selector">';
+  html += '<button class="filter-chip active" data-period="all">全部</button>';
+  html += '<button class="filter-chip" data-period="this-month">本月</button>';
+  html += '<button class="filter-chip" data-period="this-year">本年</button>';
+  html += '<select class="sort-select" id="stats-currency" style="margin-left:auto;">';
+  html += '<option value="orig">各币种分开</option>';
+  for (let [code, info] of Object.entries(CURRENCIES)) {
+    html += '<option value="' + code + '">统一为 ' + info.symbol + info.name + '</option>';
+  }
+  html += '</select>';
+  html += '</div>';
+
+  // Filter by period (default all)
+  let filtered = closedTrades;
+  const now = new Date();
+  const thisMonth = now.getMonth();
+  const thisYear = now.getFullYear();
+
+  // KPI calculations
+  const totalTrades = filtered.length;
+  const wins = filtered.filter(t => (getTradePnL(t) || 0) > 0);
+  const losses = filtered.filter(t => (getTradePnL(t) || 0) < 0);
+  const winRate = totalTrades > 0 ? (wins.length / totalTrades * 100) : 0;
+  const totalPnL = filtered.reduce((sum, t) => sum + (getTradePnL(t) || 0), 0);
+  const avgWin = wins.length > 0 ? wins.reduce((s, t) => s + (getTradePnL(t) || 0), 0) / wins.length : 0;
+  const avgLoss = losses.length > 0 ? losses.reduce((s, t) => s + (getTradePnL(t) || 0), 0) / losses.length : 0;
+  const profitFactor = Math.abs(avgLoss) > 0 ? Math.abs(avgWin / avgLoss) : 0;
+
+  html += '<div class="kpi-grid">';
+  html += '<div class="kpi-card"><div class="kpi-val">' + totalTrades + '</div><div class="kpi-label">总交易数</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-val">' + winRate.toFixed(1) + '%</div><div class="kpi-label">胜率</div><div class="kpi-sub">盈' + wins.length + ' / 亏' + losses.length + '</div></div>';
+  const pnlCls = totalPnL > 0 ? 'text-profit' : (totalPnL < 0 ? 'text-loss' : '');
+  html += '<div class="kpi-card"><div class="kpi-val ' + pnlCls + '">' + formatCurrency(totalPnL) + '</div><div class="kpi-label">总盈亏</div></div>';
+  html += '<div class="kpi-card"><div class="kpi-val">' + (profitFactor > 0 ? profitFactor.toFixed(2) : '--') + '</div><div class="kpi-label">盈亏比</div><div class="kpi-sub">均盈' + formatCurrency(avgWin) + ' / 均亏' + formatCurrency(avgLoss) + '</div></div>';
+  html += '</div>';
+
+  // Monthly P&L Chart
+  html += '<div class="chart-container"><div class="chart-title">月度盈亏分布</div><canvas id="chart-monthly" width="340" height="180"></canvas></div>';
+
+  // Win/Loss Donut
+  html += '<div class="chart-container"><div class="chart-title">盈亏分布</div><canvas id="chart-donut" width="200" height="200"></canvas></div>';
+
+  // Breakdown by asset type
+  html += '<div class="breakdown"><h3>按资产类型</h3>';
+  const byAsset = {};
+  for (let t of filtered) {
+    const pnl = getTradePnL(t);
+    if (pnl == null) continue;
+    const key = ASSET_TYPES[t.assetType] || t.assetType;
+    if (!byAsset[key]) byAsset[key] = { count: 0, pnl: 0 };
+    byAsset[key].count++;
+    byAsset[key].pnl += pnl;
+  }
+  if (Object.keys(byAsset).length === 0) {
+    html += '<div class="text-muted" style="font-size:13px;text-align:center;padding:8px;">暂无已平仓交易</div>';
+  } else {
+    for (let [key, val] of Object.entries(byAsset)) {
+      const cls = val.pnl > 0 ? 'text-profit' : (val.pnl < 0 ? 'text-loss' : '');
+      html += '<div class="breakdown-row"><span>' + key + ' (' + val.count + '笔)</span><span class="' + cls + '">' + formatCurrency(val.pnl) + '</span></div>';
+    }
+  }
+  html += '</div>';
+
+  // Breakdown by currency
+  html += '<div class="breakdown"><h3>按货币单位</h3>';
+  const byCurrency = {};
+  for (let t of filtered) {
+    const pnl = getTradePnL(t);
+    if (pnl == null) continue;
+    const key = t.currency || 'CNY';
+    if (!byCurrency[key]) byCurrency[key] = { count: 0, pnl: 0 };
+    byCurrency[key].count++;
+    byCurrency[key].pnl += pnl;
+  }
+  if (Object.keys(byCurrency).length === 0) {
+    html += '<div class="text-muted" style="font-size:13px;text-align:center;padding:8px;">暂无已平仓交易</div>';
+  } else {
+    for (let [code, val] of Object.entries(byCurrency)) {
+      const curInfo = CURRENCIES[code] || CURRENCIES['CNY'];
+      const cls = val.pnl > 0 ? 'text-profit' : (val.pnl < 0 ? 'text-loss' : '');
+      // Show approximate CNY equivalent
+      const cnyEquiv = convertCurrency(val.pnl, code, 'CNY');
+      const cnyStr = code !== 'CNY' ? ' (≈¥' + Math.round(cnyEquiv).toLocaleString() + ')' : '';
+      html += '<div class="breakdown-row"><span>' + curInfo.symbol + ' ' + curInfo.name + ' (' + val.count + '笔)</span><span class="' + cls + '">' + formatCurrency(val.pnl, 2, code) + cnyStr + '</span></div>';
+    }
+  }
+  html += '</div>';
+
+  // Breakdown by tags
+  html += '<div class="breakdown"><h3>按标签</h3>';
+  const byTag = {};
+  for (let t of filtered) {
+    const pnl = getTradePnL(t);
+    if (pnl == null || !t.tags) continue;
+    for (let tag of t.tags) {
+      if (!byTag[tag]) byTag[tag] = { count: 0, pnl: 0 };
+      byTag[tag].count++;
+      byTag[tag].pnl += pnl;
+    }
+  }
+  if (Object.keys(byTag).length === 0) {
+    html += '<div class="text-muted" style="font-size:13px;text-align:center;padding:8px;">暂无标签数据</div>';
+  } else {
+    const sorted = Object.entries(byTag).sort((a, b) => Math.abs(b[1].pnl) - Math.abs(a[1].pnl)).slice(0, 10);
+    for (let [tag, val] of sorted) {
+      const cls = val.pnl > 0 ? 'text-profit' : (val.pnl < 0 ? 'text-loss' : '');
+      html += '<div class="breakdown-row"><span>#' + escapeHtml(tag) + ' (' + val.count + '笔)</span><span class="' + cls + '">' + formatCurrency(val.pnl) + '</span></div>';
+    }
+  }
+  html += '</div>';
+
+  return html;
+}
+
+/* ---- Tab 3: Settings ---- */
+function renderSettings() {
+  let html = '';
+
+  // Install banner
+  html += '<div class="install-banner" id="install-banner"><span class="ib-text">📲 添加到手机主屏幕</span><button class="ib-btn" id="btn-install">立即添加</button></div>';
+
+  // Appearance
+  html += '<div class="settings-section"><h3>🎨 外观</h3>';
+  html += '<div class="settings-row"><span class="s-label">配色方案</span>';
+  html += '<div class="segmented" style="width:auto;" id="color-scheme-toggle">';
+  const isChinese = (state.settings.colorScheme || 'chinese') === 'chinese';
+  html += '<button class="segmented-btn' + (isChinese ? ' active' : '') + '" data-scheme="chinese">红涨绿跌</button>';
+  html += '<button class="segmented-btn' + (!isChinese ? ' active' : '') + '" data-scheme="western">红跌绿涨</button>';
+  html += '</div></div>';
+  html += '<div class="settings-row"><span class="s-label">默认货币</span>';
+  html += '<select class="form-select" id="default-currency" style="width:auto;padding:6px 10px;font-size:13px;">';
+  const defCur = state.settings.defaultCurrency || 'CNY';
+  for (let [code, info] of Object.entries(CURRENCIES)) {
+    html += '<option value="' + code + '"' + (defCur === code ? ' selected' : '') + '>' + info.symbol + ' ' + info.name + '</option>';
+  }
+  html += '</select></div>';
+  html += '</div>';
+
+  // Data management
+  html += '<div class="settings-section"><h3>💾 数据管理</h3>';
+  html += '<div class="settings-row"><span><span class="s-label">导出 CSV</span><br><span class="s-desc">下载所有交易记录为CSV文件</span></span><button class="btn btn-secondary" id="btn-export" style="flex:none;">导出</button></div>';
+  html += '<div class="settings-row"><span><span class="s-label">导入 CSV</span><br><span class="s-desc">从CSV文件导入交易记录</span></span><button class="btn btn-secondary" id="btn-import" style="flex:none;">导入</button></div>';
+  html += '<div class="settings-row"><span><span class="s-label">清除所有数据</span><br><span class="s-desc" style="color:var(--color-danger);">此操作不可恢复</span></span><button class="btn btn-danger" id="btn-clear" style="flex:none;">清除</button></div>';
+  html += '<div class="storage-info">📦 共 ' + state.trades.length + ' 条记录，存储用量约 ' + getStorageUsage() + '</div>';
+  html += '</div>';
+
+  // About
+  html += '<div class="settings-section"><h3>ℹ️ 关于</h3>';
+  html += '<div class="settings-row"><span class="s-label">版本</span><span class="text-muted">1.0.0</span></div>';
+  html += '<div class="settings-row"><span class="s-label">技术</span><span class="text-muted">PWA · localStorage · Canvas</span></div>';
+  html += '</div>';
+
+  return html;
+}
+
+/* ---- Modal Form ---- */
+function renderTradeForm(trade) {
+  const isEdit = !!trade;
+  const isLong = trade ? trade.direction === 'long' : true;
+  const isOpen = trade ? trade.status === 'open' : true;
+
+  let html = '';
+
+  // Smart Paste (available in both add and edit mode)
+  html += '<div class="smart-paste-toggle" id="smart-paste-toggle">📋 智能粘贴 <span style="font-size:11px;opacity:0.7;">从交易平台一键粘贴 / OCR识别</span></div>';
+  html += '<div class="smart-paste-section" id="smart-paste-section">';
+    // Tab switcher
+    html += '<div style="display:flex;gap:4px;margin-bottom:8px;">';
+    html += '<button class="btn btn-secondary smart-paste-tab active" id="smart-paste-text-tab" style="flex:1;padding:7px 4px;font-size:12px;border-radius:6px;">📝 文本粘贴</button>';
+    html += '<button class="btn btn-secondary smart-paste-tab" id="smart-paste-img-tab" style="flex:1;padding:7px 4px;font-size:12px;border-radius:6px;">📷 截图识图</button>';
+    html += '</div>';
+    // Text panel
+    html += '<div id="smart-paste-text-panel">';
+    html += '<textarea class="smart-paste-area" id="smart-paste-input" placeholder="粘贴交易平台的成交信息，自动识别标的、价格、方向……\n\n例：BTC/USDT 做多 成交价 42000 数量 0.5 2026-06-01\n\n💡 也支持直接粘贴截图 (Ctrl+V)"></textarea>';
+    html += '</div>';
+    // Image panel
+    html += '<div id="smart-paste-img-panel" style="display:none;">';
+    html += '<div class="smart-paste-img-drop" id="smart-paste-img-drop">';
+    html += '<div style="font-size:28px;margin-bottom:4px;">📷</div>';
+    html += '<div style="font-size:13px;color:var(--color-text-secondary);">点击此处选择截图</div>';
+    html += '<div style="font-size:11px;color:var(--color-text-muted);">或直接 Ctrl+V 粘贴图片 · 支持 PNG/JPG</div>';
+    html += '</div>';
+    html += '<img id="smart-paste-img-preview" style="display:none;max-width:100%;max-height:140px;margin-top:8px;border-radius:4px;border:1px solid var(--color-border);">';
+    html += '<div class="ocr-progress" id="ocr-progress" style="display:none;margin-top:8px;padding:8px 12px;background:#F7FAFC;border-radius:6px;">';
+    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    html += '<span style="font-size:18px;animation:spin 1s linear infinite;">⏳</span>';
+    html += '<span id="ocr-progress-text" style="font-size:12px;color:var(--color-text-secondary);">正在识别文字...</span>';
+    html += '</div>';
+    html += '</div>';
+    html += '<div id="ocr-result-text" style="display:none;margin-top:8px;padding:10px;background:#F0FFF4;border-radius:6px;font-size:12px;max-height:100px;overflow-y:auto;white-space:pre-wrap;"></div>';
+    html += '</div>';
+    html += '<input type="file" id="smart-paste-file-input" accept="image/png,image/jpeg,image/webp" style="display:none;">';
+    html += '<div class="smart-paste-actions">';
+    html += '<button class="btn btn-primary" id="smart-paste-parse" style="flex:none;padding:6px 14px;font-size:13px;">🔍 解析填充</button>';
+    html += '<button class="btn btn-secondary" id="smart-paste-clear" style="flex:none;padding:6px 14px;font-size:13px;">清空</button>';
+    html += '<button class="btn btn-secondary" id="smart-paste-use-raw" style="flex:none;padding:6px 10px;font-size:11px;display:none;" title="当过滤过度时使用原始OCR文本">🔄原始</button>';
+    html += '</div>';
+    html += '<div class="smart-paste-result" id="smart-paste-result"></div>';
+    html += '</div>';
+
+  // Symbol
+  html += '<div class="form-group"><label class="form-label">交易标的 <span class="required">*</span></label>';
+  html += '<input class="form-input" id="fld-symbol" type="text" placeholder="例: BTC/USDT, AAPL, EUR/USD" value="' + escapeHtml(trade?.symbol || '') + '" required></div>';
+
+  // Asset Type
+  html += '<div class="form-group"><label class="form-label">资产类型</label>';
+  html += '<div class="segmented" id="fld-assetType">';
+  for (let [val, label] of Object.entries(ASSET_TYPES)) {
+    const sel = (trade?.assetType || 'stock') === val;
+    html += '<button class="segmented-btn' + (sel ? ' active' : '') + '" data-val="' + val + '">' + label + '</button>';
+  }
+  html += '</div></div>';
+
+  // Currency + Direction (side by side)
+  html += '<div class="form-row">';
+  html += '<div class="form-group"><label class="form-label">货币单位</label>';
+  html += '<select class="form-select" id="fld-currency">';
+  const defaultCur = trade?.currency || state.settings.defaultCurrency || 'CNY';
+  for (let [code, info] of Object.entries(CURRENCIES)) {
+    html += '<option value="' + code + '"' + (defaultCur === code ? ' selected' : '') + '>' + info.symbol + ' ' + info.name + '</option>';
+  }
+  html += '</select></div>';
+  html += '<div class="form-group"><label class="form-label">方向</label>';
+  html += '<div class="segmented" id="fld-direction">';
+  html += '<button class="segmented-btn' + (isLong ? ' active' : '') + '" data-val="long">📈 做多</button>';
+  html += '<button class="segmented-btn' + (!isLong ? ' active' : '') + '" data-val="short">📉 做空</button>';
+  html += '</div></div>';
+  html += '</div>';
+
+  // Status
+  html += '<div class="form-group"><label class="form-label">状态</label>';
+  html += '<div class="segmented" id="fld-status">';
+  html += '<button class="segmented-btn' + (isOpen ? ' active' : '') + '" data-val="open">持仓中</button>';
+  html += '<button class="segmented-btn' + (!isOpen ? ' active' : '') + '" data-val="closed">已平仓</button>';
+  html += '</div></div>';
+
+  // Entry Price + Quantity
+  html += '<div class="form-row">';
+  html += '<div class="form-group"><label class="form-label">入场价格 <span class="required">*</span></label>';
+  html += '<input class="form-input" id="fld-entryPrice" type="number" step="any" placeholder="0.00" value="' + (trade?.entryPrice || '') + '" required></div>';
+  html += '<div class="form-group"><label class="form-label">数量 <span class="required">*</span></label>';
+  html += '<input class="form-input" id="fld-quantity" type="number" step="any" placeholder="0" value="' + (trade?.quantity || '') + '" required></div>';
+  html += '</div>';
+
+  // Leverage + Volume + Avg Price
+  html += '<div class="form-row">';
+  html += '<div class="form-group"><label class="form-label">倍数</label>';
+  html += '<input class="form-input" id="fld-leverage" type="number" step="any" placeholder="如 10x" value="' + (trade?.leverage || '') + '"></div>';
+  html += '<div class="form-group"><label class="form-label">成交量</label>';
+  html += '<input class="form-input" id="fld-volume" type="number" step="any" placeholder="成交数量" value="' + (trade?.volume || '') + '"></div>';
+  html += '<div class="form-group"><label class="form-label">成交均价</label>';
+  html += '<input class="form-input" id="fld-avgPrice" type="number" step="any" placeholder="实际成交均价" value="' + (trade?.avgPrice || '') + '"></div>';
+  html += '</div>';
+
+  // Exit Price + Exit Date (only for closed)
+  html += '<div class="cond-field' + (isOpen ? '' : ' show') + '" id="cond-exitPrice"><div class="form-row">';
+  html += '<div class="form-group"><label class="form-label">出场价格</label>';
+  html += '<input class="form-input" id="fld-exitPrice" type="number" step="any" placeholder="0.00" value="' + (trade?.exitPrice || '') + '"></div>';
+  html += '<div class="form-group"><label class="form-label">出场日期</label>';
+  html += '<input class="form-input" id="fld-exitDate" type="date" value="' + (trade?.exitDate || '') + '"></div>';
+  html += '</div>';
+  html += '<div class="form-row"><div class="form-group"><label class="form-label">手动盈亏 <span class="form-hint">(填写后覆盖自动计算，盈利正数亏损负数)</span></label>';
+  html += '<input class="form-input" id="fld-manualPnL" type="number" step="any" placeholder="如 +750 或 -200" value="' + (trade?.manualPnL || '') + '"></div></div>';
+  html += '</div>';
+
+  // Entry Date + Fees
+  html += '<div class="form-row">';
+  html += '<div class="form-group"><label class="form-label">入场日期 <span class="required">*</span></label>';
+  html += '<input class="form-input" id="fld-entryDate" type="date" value="' + (trade?.entryDate || new Date().toISOString().slice(0, 10)) + '" required></div>';
+  html += '<div class="form-group"><label class="form-label">手续费</label>';
+  html += '<input class="form-input" id="fld-fees" type="number" step="any" placeholder="0" value="' + (trade?.fees || '') + '"></div>';
+  html += '</div>';
+
+  // Mark Price (only for open)
+  html += '<div class="cond-field' + (isOpen ? ' show' : '') + '" id="cond-markPrice">';
+  html += '<div class="form-group"><label class="form-label">标记价格 <span class="form-hint">(当前市价，用于计算未实现盈亏)</span></label>';
+  html += '<input class="form-input" id="fld-markPrice" type="number" step="any" placeholder="0.00" value="' + (trade?.markPrice || '') + '"></div>';
+  html += '</div>';
+
+  // Tags
+  html += '<div class="form-group"><label class="form-label">标签 <span class="form-hint">(用逗号分隔，如: 突破,日内,动量)</span></label>';
+  html += '<input class="form-input" id="fld-tags" type="text" placeholder="突破,日内" value="' + escapeHtml((trade?.tags || []).join(',')) + '"></div>';
+
+  // Entry Reason
+  html += '<div class="form-group"><label class="form-label">开单理由</label>';
+  html += '<textarea class="form-textarea" id="fld-entryReason" placeholder="为什么要做这笔交易？技术形态？消息面？" rows="3">' + escapeHtml(trade?.entryReason || '') + '</textarea></div>';
+
+  // Loss Reason (only shown when closed and calculated loss)
+  const showLoss = !isOpen;
+  html += '<div class="cond-field' + (showLoss ? ' show' : '') + '" id="cond-lossReason">';
+  html += '<div class="form-group"><label class="form-label">亏损原因 <span class="form-hint">(复盘用，盈利可不填)</span></label>';
+  html += '<textarea class="form-textarea" id="fld-lossReason" placeholder="为什么会亏损？追高？没有止损？判断错误？" rows="3">' + escapeHtml(trade?.lossReason || '') + '</textarea></div>';
+  html += '</div>';
+
+  // Notes
+  html += '<div class="form-group"><label class="form-label">备注</label>';
+  html += '<textarea class="form-textarea" id="fld-notes" placeholder="其他备注信息..." rows="2">' + escapeHtml(trade?.notes || '') + '</textarea></div>';
+
+  // Image attachments (for both add and edit)
+  const formImages = (trade && trade.images) ? trade.images : [];
+  html += '<div class="form-group"><label class="form-label">📷 截图附件 <span class="form-hint">(复盘用，可粘贴截图 Ctrl+V)</span></label>';
+  html += '<div class="img-drop-zone" id="form-img-drop">📷 点击上传截图 或 Ctrl+V 粘贴</div>';
+  html += '<input type="file" id="form-img-file-input" accept="image/png,image/jpeg,image/webp" style="display:none;">';
+  html += renderFormImages(formImages);
+  html += '</div>';
+
+  return html;
+}
+
+/* ---- Charts ---- */
+function drawCharts() {
+  drawMonthlyChart();
+  drawDonutChart();
+}
+
+function drawMonthlyChart() {
+  const canvas = document.getElementById('chart-monthly');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Get data
+  const closed = state.trades.filter(t => t.status === 'closed');
+  const monthly = {};
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const m = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+    const key = m.getFullYear() + '-' + String(m.getMonth() + 1).padStart(2, '0');
+    monthly[key] = 0;
+  }
+  for (let t of closed) {
+    if (!t.exitDate) continue;
+    const parts = t.exitDate.split('-');
+    if (parts.length < 2) continue;
+    const key = parts[0] + '-' + parts[1];
+    if (monthly.hasOwnProperty(key)) {
+      const p = calcPnL(t);
+      if (p) monthly[key] += p.net;
+    }
+  }
+
+  const entries = Object.entries(monthly);
+  const labels = entries.map(([k]) => k.slice(5)); // MM
+  const values = entries.map(([, v]) => v);
+  const maxAbs = Math.max(Math.abs(Math.max(...values)), Math.abs(Math.min(...values)), 1);
+
+  // Draw
+  const pad = { top: 10, right: 10, bottom: 22, left: 50 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+  const barW = Math.max(4, chartW / entries.length * 0.6);
+  const gap = chartW / entries.length;
+  const zeroY = pad.top + chartH / 2;
+
+  // Zero line
+  ctx.strokeStyle = '#E2E8F0';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, zeroY);
+  ctx.lineTo(W - pad.right, zeroY);
+  ctx.stroke();
+
+  // Bars
+  for (let i = 0; i < entries.length; i++) {
+    const val = values[i];
+    const x = pad.left + gap * i + (gap - barW) / 2;
+    const barH = (Math.abs(val) / maxAbs) * (chartH / 2 - 4);
+    const y = val >= 0 ? zeroY - barH : zeroY;
+    const h = Math.max(1, barH);
+
+    if (val >= 0) {
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-profit').trim();
+    } else {
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-loss').trim();
+    }
+    ctx.fillRect(x, y, barW, h);
+
+    // Label
+    ctx.fillStyle = '#A0AEC0';
+    ctx.font = '9px ' + getComputedStyle(document.documentElement).fontFamily;
+    ctx.textAlign = 'center';
+    ctx.fillText(labels[i], x + barW / 2, H - 2);
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = '#A0AEC0';
+  ctx.font = '9px ' + getComputedStyle(document.documentElement).fontFamily;
+  ctx.textAlign = 'right';
+  ctx.fillText(formatCurrency(maxAbs, 0), pad.left - 4, pad.top + 10);
+  ctx.fillText('0', pad.left - 4, zeroY + 4);
+  ctx.fillText(formatCurrency(-maxAbs, 0), pad.left - 4, H - pad.bottom);
+}
+
+function drawDonutChart() {
+  const canvas = document.getElementById('chart-donut');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const closed = state.trades.filter(t => t.status === 'closed');
+  const wins = closed.filter(t => { const p = getTradePnL(t); return p > 0; });
+  const losses = closed.filter(t => { const p = getTradePnL(t); return p < 0; });
+  const breakeven = closed.filter(t => { const p = getTradePnL(t); return p === 0; });
+  const total = closed.length;
+  const data = [
+    { val: wins.length, color: getComputedStyle(document.documentElement).getPropertyValue('--color-profit').trim() },
+    { val: losses.length, color: getComputedStyle(document.documentElement).getPropertyValue('--color-loss').trim() },
+    { val: breakeven.length, color: '#A0AEC0' },
+  ].filter(d => d.val > 0);
+
+  const cx = W / 2;
+  const cy = H / 2;
+  const outerR = Math.min(cx, cy) - 6;
+  const innerR = outerR * 0.6;
+
+  if (total === 0 || data.length === 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+    ctx.fillStyle = '#E2E8F0';
+    ctx.fill();
+    ctx.fillStyle = '#A0AEC0';
+    ctx.font = '13px ' + getComputedStyle(document.documentElement).fontFamily;
+    ctx.textAlign = 'center';
+    ctx.fillText('暂无数据', cx, cy + 4);
+    return;
+  }
+
+  let angle = -Math.PI / 2;
+  for (let seg of data) {
+    const slice = (seg.val / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerR, angle, angle + slice);
+    ctx.arc(cx, cy, innerR, angle + slice, angle, true);
+    ctx.closePath();
+    ctx.fillStyle = seg.color;
+    ctx.fill();
+    angle += slice;
+  }
+
+  // Center text
+  const winRate = total > 0 ? (wins.length / total * 100) : 0;
+  ctx.fillStyle = '#1A202C';
+  ctx.font = 'bold 18px ' + getComputedStyle(document.documentElement).fontFamily;
+  ctx.textAlign = 'center';
+  ctx.fillText(winRate.toFixed(1) + '%', cx, cy + 2);
+  ctx.fillStyle = '#A0AEC0';
+  ctx.font = '10px ' + getComputedStyle(document.documentElement).fontFamily;
+  ctx.fillText('胜率', cx, cy + 16);
+}
+
+/* ================================================================
+   SECTION 6: Modal Handling
+   ================================================================ */
+function openModal(trade) {
+  state.editingId = trade ? trade.id : null;
+  state.modalOpen = true;
+  state._formImages = (trade && trade.images) ? [...trade.images] : [];
+  document.getElementById('modal-title').textContent = trade ? '编辑交易' : '添加交易';
+  document.getElementById('modal-body').innerHTML = renderTradeForm(trade);
+  document.getElementById('modal-overlay').classList.add('open');
+  // Bind status toggle
+  bindStatusToggle();
+}
+
+function closeModal() {
+  state.modalOpen = false;
+  state.editingId = null;
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function bindStatusToggle() {
+  const statusBtns = document.querySelectorAll('#fld-status .segmented-btn');
+  const directionBtns = document.querySelectorAll('#fld-direction .segmented-btn');
+  const assetBtns = document.querySelectorAll('#fld-assetType .segmented-btn');
+
+  statusBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      statusBtns.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      const isOpen = this.dataset.val === 'open';
+      document.getElementById('cond-exitPrice').classList.toggle('show', !isOpen);
+      document.getElementById('cond-markPrice').classList.toggle('show', isOpen);
+      document.getElementById('cond-lossReason').classList.toggle('show', !isOpen);
+    });
+  });
+
+  directionBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      directionBtns.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  assetBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      assetBtns.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+}
+
+function collectFormData() {
+  const getSegVal = (id) => {
+    const el = document.querySelector('#' + id + ' .segmented-btn.active');
+    return el ? el.dataset.val : null;
+  };
+  const val = (id) => document.getElementById(id)?.value || '';
+
+  const status = getSegVal('fld-status') || 'open';
+  const data = {
+    symbol: val('fld-symbol').trim(),
+    assetType: getSegVal('fld-assetType') || 'stock',
+    direction: getSegVal('fld-direction') || 'long',
+    status: status,
+    entryPrice: parseFloat(val('fld-entryPrice')),
+    quantity: parseFloat(val('fld-quantity')),
+    entryDate: val('fld-entryDate'),
+    fees: parseFloat(val('fld-fees')) || 0,
+    tags: val('fld-tags').split(',').map(s => s.trim()).filter(Boolean),
+    entryReason: val('fld-entryReason').trim(),
+    lossReason: val('fld-lossReason').trim(),
+    notes: val('fld-notes').trim(),
+    images: collectFormImages(),
+    leverage: parseFloat(val('fld-leverage')) || null,
+    volume: parseFloat(val('fld-volume')) || null,
+    avgPrice: parseFloat(val('fld-avgPrice')) || null,
+    currency: val('fld-currency') || 'CNY',
+    manualPnL: val('fld-manualPnL') ? parseFloat(val('fld-manualPnL')) : null,
+  };
+
+  if (status === 'closed') {
+    data.exitPrice = parseFloat(val('fld-exitPrice')) || null;
+    data.exitDate = val('fld-exitDate') || null;
+    data.markPrice = null;
+  } else {
+    data.markPrice = parseFloat(val('fld-markPrice')) || null;
+    data.exitPrice = null;
+    data.exitDate = null;
+  }
+
+  return data;
+}
+
+function validateForm(data) {
+  // No required fields — user can save with whatever is filled
+  return null;
+}
+
+function saveForm() {
+  const data = collectFormData();
+  const err = validateForm(data);
+  if (err) { showToast(err); return; }
+
+  if (state.editingId) {
+    updateTrade(state.editingId, data);
+    showToast('交易已更新 ✓');
+  } else {
+    addTrade(data);
+    showToast('交易已添加 ✓');
+  }
+  closeModal();
+  refreshState();
+  render();
+}
+
+/* ================================================================
+   SECTION 7: CSV Export/Import
+   ================================================================ */
+function exportCSV() {
+  const trades = loadTrades();
+  if (trades.length === 0) { showToast('没有数据可导出'); return; }
+
+  const headers = ['id', 'symbol', 'assetType', 'direction', 'status', 'entryPrice', 'exitPrice', 'quantity', 'entryDate', 'exitDate', 'markPrice', 'fees', 'leverage', 'volume', 'avgPrice', 'currency', 'manualPnL', 'tags', 'entryReason', 'lossReason', 'notes', 'reviewNotes', 'createdAt', 'updatedAt'];
+  const rows = [headers.join(',')];
+
+  for (let t of trades) {
+    const row = headers.map(h => {
+      let val = t[h];
+      if (val == null) return '';
+      if (Array.isArray(val)) val = '"' + val.join(';') + '"';
+      else if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+        val = '"' + val.replace(/"/g, '""') + '"';
+      }
+      return val;
+    });
+    rows.push(row.join(','));
+  }
+
+  const BOM = '﻿';
+  const blob = new Blob([BOM + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'trade-journal-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('导出成功 ✓');
+}
+
+function importCSV(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const text = e.target.result;
+      // Strip BOM
+      const clean = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+      const lines = clean.split('\n').filter(l => l.trim());
+      if (lines.length < 2) { showToast('CSV文件为空或格式不正确'); return; }
+
+      const headers = parseCSVLine(lines[0]);
+      const required = ['symbol', 'entryPrice', 'quantity', 'entryDate'];
+      for (let r of required) {
+        if (!headers.includes(r)) { showToast('缺少必要列: ' + r); return; }
+      }
+
+      const trades = loadTrades();
+      const existingIds = new Set(trades.map(t => t.id));
+      let imported = 0;
+      let skipped = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const vals = parseCSVLine(lines[i]);
+        if (vals.length === 0) continue;
+        const obj = {};
+        headers.forEach((h, idx) => { obj[h] = vals[idx] || ''; });
+
+        // Parse
+        const trade = {
+          id: obj.id && obj.id.trim() ? obj.id.trim() : generateId(),
+          symbol: obj.symbol || '',
+          assetType: obj.assetType || 'stock',
+          direction: obj.direction || 'long',
+          status: obj.status || 'closed',
+          entryPrice: parseFloat(obj.entryPrice) || 0,
+          exitPrice: obj.exitPrice ? parseFloat(obj.exitPrice) : null,
+          quantity: parseFloat(obj.quantity) || 0,
+          entryDate: obj.entryDate || '',
+          exitDate: obj.exitDate || null,
+          markPrice: obj.markPrice ? parseFloat(obj.markPrice) : null,
+          fees: parseFloat(obj.fees) || 0,
+          leverage: obj.leverage ? parseFloat(obj.leverage) : null,
+          volume: obj.volume ? parseFloat(obj.volume) : null,
+          avgPrice: obj.avgPrice ? parseFloat(obj.avgPrice) : null,
+          currency: obj.currency || 'CNY',
+          manualPnL: obj.manualPnL ? parseFloat(obj.manualPnL) : null,
+          tags: obj.tags ? obj.tags.split(';').map(s => s.trim()).filter(Boolean) : [],
+          entryReason: obj.entryReason || '',
+          lossReason: obj.lossReason || '',
+          notes: obj.notes || '',
+          reviewNotes: obj.reviewNotes || '',
+          createdAt: obj.createdAt || new Date().toISOString(),
+          updatedAt: obj.updatedAt || new Date().toISOString(),
+        };
+
+        if (existingIds.has(trade.id)) { skipped++; continue; }
+        existingIds.add(trade.id);
+        trades.push(trade);
+        imported++;
+      }
+
+      saveTrades(trades);
+      refreshState();
+      render();
+      showToast('导入 ' + imported + ' 条，跳过 ' + skipped + ' 条重复');
+    } catch (err) {
+      showToast('导入失败: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; }
+        else { inQuotes = false; }
+      } else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { result.push(current); current = ''; }
+      else { current += ch; }
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+/* ================================================================
+   SECTION 8: Toast & Confirm
+   ================================================================ */
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function showConfirm(msg, callback) {
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-overlay').classList.add('open');
+  state.confirmCallback = callback;
+}
+
+function hideConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  state.confirmCallback = null;
+}
+
+/* ================================================================
+   SECTION 8b: Copy Dialog
+   ================================================================ */
+function generateTradeSummary(trade, reviewNotes) {
+  const pnl = calcPnL(trade);
+  const unrealized = calcUnrealizedPnL(trade);
+  const assetLabel = ASSET_TYPES[trade.assetType] || trade.assetType;
+  const isLong = trade.direction === 'long';
+  const dirLabel = isLong ? '📈 做多' : '📉 做空';
+  const statusLabel = trade.status === 'open' ? '持仓中' : '已平仓';
+  const cur = trade.currency || 'CNY';
+  const curSym = getCurrencySymbol(cur);
+
+  let text = '📊 交易记录 (' + curSym + ')\n';
+  text += '────────────────────\n';
+  text += '标的: ' + trade.symbol + '（' + assetLabel + '）\n';
+  text += '方向: ' + dirLabel + '\n';
+  if (trade.leverage) text += '倍数: ' + trade.leverage + 'x\n';
+  text += '状态: ' + statusLabel + '\n';
+  text += '日期: ' + formatDate(trade.entryDate);
+  if (trade.status === 'closed' && trade.exitDate) {
+    text += ' → ' + formatDate(trade.exitDate);
+  }
+  text += '\n';
+  text += '入场: ' + formatCurrency(trade.entryPrice, 2, cur) + '\n';
+  if (trade.status === 'closed') {
+    text += '出场: ' + formatCurrency(trade.exitPrice, 2, cur) + '\n';
+  } else if (trade.markPrice) {
+    text += '标记: ' + formatCurrency(trade.markPrice, 2, cur) + '\n';
+  }
+  if (trade.avgPrice) text += '成交均价: ' + formatCurrency(trade.avgPrice, 2, cur) + '\n';
+  text += '数量: ' + (trade.quantity || '--') + ' 份';
+  if (trade.volume) text += '  成交量: ' + trade.volume;
+  text += '\n';
+
+  if (trade.manualPnL != null) {
+    const mpnl = trade.manualPnL;
+    const pnlSign = mpnl > 0 ? '+' : '';
+    text += '盈亏: ' + pnlSign + formatCurrency(mpnl, 2, cur) + ' ✍️手动\n';
+  } else if (pnl) {
+    const pnlSign = pnl.net > 0 ? '+' : '';
+    text += '盈亏: ' + pnlSign + formatCurrency(pnl.net, 2, cur) + ' (' + formatPct(pnl.pct) + ')\n';
+  } else if (unrealized) {
+    const pnlSign = unrealized.gross > 0 ? '+' : '';
+    text += '未实现盈亏: ' + pnlSign + formatCurrency(unrealized.gross) + ' (' + formatPct(unrealized.pct) + ')\n';
+  }
+
+  if (trade.fees) {
+    text += '手续费: ' + formatCurrency(trade.fees) + '\n';
+  }
+  if (trade.tags && trade.tags.length > 0) {
+    text += '标签: ' + trade.tags.map(t => '#' + t).join(' ') + '\n';
+  }
+  text += '────────────────────\n';
+  if (trade.entryReason) {
+    text += '开单理由: ' + trade.entryReason + '\n';
+  }
+  if (trade.status === 'closed' && pnl && pnl.net < 0 && trade.lossReason) {
+    text += '亏损原因: ' + trade.lossReason + '\n';
+  }
+  if (reviewNotes) {
+    text += '────────────────────\n';
+    text += '复盘笔记: ' + reviewNotes + '\n';
+  }
+  return text;
+}
+
+function openCopyDialog(trade) {
+  state._copyTradeId = trade.id;
+  document.getElementById('copy-preview-text').textContent = generateTradeSummary(trade, trade.reviewNotes || '');
+  document.getElementById('copy-review-notes').value = trade.reviewNotes || '';
+  // Update preview when notes change
+  document.getElementById('copy-review-notes').oninput = function() {
+    document.getElementById('copy-preview-text').textContent = generateTradeSummary(trade, this.value);
+  };
+  document.getElementById('copy-dialog-overlay').classList.add('open');
+}
+
+function closeCopyDialog() {
+  document.getElementById('copy-dialog-overlay').classList.remove('open');
+  state._copyTradeId = null;
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('已复制到剪贴板 ✓');
+    }).catch(() => {
+      fallbackCopy(text);
+    });
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  ta.style.top = '-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('已复制到剪贴板 ✓');
+  } catch (e) {
+    showToast('复制失败，请手动复制');
+  }
+  document.body.removeChild(ta);
+}
+
+/* ================================================================
+   SECTION 8c: Trading Instrument Knowledge Base
+   ================================================================ */
+// Maps OCR-mangled or variant symbols → canonical form + metadata
+// Format: canonicalSymbol: { name, assetType, aliases[], keywords[] }
+const INSTRUMENT_KB = {
+  // ====== 加密货币 (Crypto) ======
+  'BTC/USDT':  { name: '比特币', assetType: 'crypto', aliases: ['btcusdt','btc/usdt','btc usdt','btc-usdt','btc.usdt','btc/ust','btcust','bteusdt','btcusdtp','btcusd','8tcusdt','btcusdtperp'], keywords: ['比特币','BTC','大饼'] },
+  'ETH/USDT':  { name: '以太坊', assetType: 'crypto', aliases: ['ethusdt','eth/usdt','eth usdt','eth-usdt','e thus dt','ethusdtperp'], keywords: ['以太坊','ETH','以太'] },
+  'SOL/USDT':  { name: 'Solana', assetType: 'crypto', aliases: ['solusdt','sol/usdt','sol usdt','sol-usdt','s0lusdt','solusdtperp'], keywords: ['SOL','solana'] },
+  'BNB/USDT':  { name: '币安币', assetType: 'crypto', aliases: ['bnbusdt','bnb/usdt','bnb usdt'], keywords: ['BNB','币安币'] },
+  'XRP/USDT':  { name: '瑞波币', assetType: 'crypto', aliases: ['xrpusdt','xrp/usdt','xrp usdt'], keywords: ['XRP','瑞波'] },
+  'DOGE/USDT': { name: '狗狗币', assetType: 'crypto', aliases: ['dogeusdt','doge/usdt','doge usdt','dog eusdt'], keywords: ['DOGE','狗狗币','狗币'] },
+  'ADA/USDT':  { name: '艾达币', assetType: 'crypto', aliases: ['adausdt','ada/usdt','ada usdt'], keywords: ['ADA','艾达'] },
+  'AVAX/USDT': { name: 'Avalanche', assetType: 'crypto', aliases: ['avaxusdt','avax/usdt'], keywords: ['AVAX'] },
+  'LINK/USDT': { name: 'Chainlink', assetType: 'crypto', aliases: ['linkusdt','link/usdt'], keywords: ['LINK'] },
+  'DOT/USDT':  { name: '波卡', assetType: 'crypto', aliases: ['dotusdt','dot/usdt'], keywords: ['DOT','波卡'] },
+  'MATIC/USDT':{ name: 'Polygon', assetType: 'crypto', aliases: ['maticusdt','matic/usdt'], keywords: ['MATIC','matic'] },
+  'ARB/USDT':  { name: 'Arbitrum', assetType: 'crypto', aliases: ['arbusdt','arb/usdt'], keywords: ['ARB'] },
+  'OP/USDT':   { name: 'Optimism', assetType: 'crypto', aliases: ['opusdt','op/usdt'], keywords: ['OP','optimism'] },
+  'SUI/USDT':  { name: 'Sui', assetType: 'crypto', aliases: ['suiusdt','sui/usdt'], keywords: ['SUI'] },
+  'APT/USDT':  { name: 'Aptos', assetType: 'crypto', aliases: ['aptusdt','apt/usdt'], keywords: ['APT'] },
+  'ATOM/USDT': { name: 'Cosmos', assetType: 'crypto', aliases: ['atomusdt','atom/usdt'], keywords: ['ATOM'] },
+  'FIL/USDT':  { name: 'Filecoin', assetType: 'crypto', aliases: ['filusdt','fil/usdt'], keywords: ['FIL'] },
+  'ETC/USDT':  { name: '以太经典', assetType: 'crypto', aliases: ['etcusdt','etc/usdt'], keywords: ['ETC'] },
+  'LTC/USDT':  { name: '莱特币', assetType: 'crypto', aliases: ['ltcusdt','ltc/usdt'], keywords: ['LTC','莱特'] },
+  'BCH/USDT':  { name: '比特币现金', assetType: 'crypto', aliases: ['bchusdt','bch/usdt'], keywords: ['BCH'] },
+  'NEAR/USDT': { name: 'Near', assetType: 'crypto', aliases: ['nearusdt','near/usdt'], keywords: ['NEAR'] },
+  'PEPE/USDT': { name: 'Pepe', assetType: 'crypto', aliases: ['pepeusdt','pepe/usdt'], keywords: ['PEPE'] },
+  'WIF/USDT':  { name: 'DogWifHat', assetType: 'crypto', aliases: ['wifusdt','wif/usdt'], keywords: ['WIF'] },
+  'TRX/USDT':  { name: '波场', assetType: 'crypto', aliases: ['trxusdt','trx/usdt'], keywords: ['TRX','波场'] },
+  'UNI/USDT':  { name: 'Uniswap', assetType: 'crypto', aliases: ['uniusdt','uni/usdt'], keywords: ['UNI'] },
+  'AAVE/USDT': { name: 'Aave', assetType: 'crypto', aliases: ['aaveusdt','aave/usdt'], keywords: ['AAVE'] },
+  'APT/USDT':  { name: 'Aptos', assetType: 'crypto', aliases: ['aptusdt','apt/usdt'], keywords: ['APT'] },
+
+  // ====== 大宗商品期货 (Commodities) ======
+  'CL/USDT':   { name: '原油/WTI', assetType: 'futures', aliases: ['cluusdt','clusdt','cl/usdt','cl usdt','cl-usdt','c lusdt','wti/usdt','wti usdt'], keywords: ['原油','WTI','CL','石油','美油'] },
+  'XAU/USD':   { name: '黄金/美元', assetType: 'forex', aliases: ['xauusd','xau/usd','xau usd','xau-usd','xauusdt','xau/usdt'], keywords: ['黄金','XAU','金','gold'] },
+  'XAG/USD':   { name: '白银/美元', assetType: 'forex', aliases: ['xagusd','xag/usd','xag usd'], keywords: ['白银','XAG','银','silver'] },
+  'NG/USDT':   { name: '天然气', assetType: 'futures', aliases: ['ngusdt','ng/usdt','ng usdt','ng-usdt'], keywords: ['天然气','NG','natgas'] },
+  'GC/USDT':   { name: '黄金期货', assetType: 'futures', aliases: ['gcusdt','gc/usdt'], keywords: ['黄金期货','GC'] },
+  'SI/USDT':   { name: '白银期货', assetType: 'futures', aliases: ['siusdt','si/usdt'], keywords: ['白银期货','SI'] },
+  'HG/USDT':   { name: '铜期货', assetType: 'futures', aliases: ['hgusdt','hg/usdt'], keywords: ['铜','HG','copper'] },
+  'ZC/USDT':   { name: '玉米期货', assetType: 'futures', aliases: ['zcusdt','zc/usdt'], keywords: ['玉米','ZC','corn'] },
+  'ZS/USDT':   { name: '大豆期货', assetType: 'futures', aliases: ['zsusdt','zs/usdt'], keywords: ['大豆','ZS','soybean'] },
+  'ZW/USDT':   { name: '小麦期货', assetType: 'futures', aliases: ['zwusdt','zw/usdt'], keywords: ['小麦','ZW','wheat'] },
+
+  // ====== 外汇 (Forex) ======
+  'EUR/USD':   { name: '欧元/美元', assetType: 'forex', aliases: ['eurusd','eur/usd','eur usd','eur-usd','eurusdt'], keywords: ['欧元','EUR'] },
+  'GBP/USD':   { name: '英镑/美元', assetType: 'forex', aliases: ['gbpusd','gbp/usd','gbp usd','gbpusdt'], keywords: ['英镑','GBP'] },
+  'USD/JPY':   { name: '美元/日元', assetType: 'forex', aliases: ['usdjpy','usd/jpy','usd jpy','usd-jpy','usdjpy'], keywords: ['日元','JPY'] },
+  'AUD/USD':   { name: '澳元/美元', assetType: 'forex', aliases: ['audusd','aud/usd','aud usd','audusdt'], keywords: ['澳元','AUD'] },
+  'USD/CAD':   { name: '美元/加元', assetType: 'forex', aliases: ['usdcad','usd/cad','usd cad'], keywords: ['加元','CAD'] },
+  'NZD/USD':   { name: '纽元/美元', assetType: 'forex', aliases: ['nzdusd','nzd/usd'], keywords: ['纽元','NZD'] },
+  'USD/CHF':   { name: '美元/瑞郎', assetType: 'forex', aliases: ['usdchf','usd/chf'], keywords: ['瑞郎','CHF'] },
+  'USD/CNH':   { name: '美元/离岸人民币', assetType: 'forex', aliases: ['usdcnh','usd/cnh','usdcny'], keywords: ['人民币','CNH','CNY'] },
+
+  // ====== 美股 (US Stocks) ======
+  'AAPL':  { name: '苹果', assetType: 'stock', aliases: ['aapl','appl','aaple'], keywords: ['苹果','Apple'] },
+  'TSLA':  { name: '特斯拉', assetType: 'stock', aliases: ['tsla','tesla','t sla'], keywords: ['特斯拉','Tesla'] },
+  'NVDA':  { name: '英伟达', assetType: 'stock', aliases: ['nvda','nvdia','nvidi a'], keywords: ['英伟达','NVIDIA','NVDA'] },
+  'MSFT':  { name: '微软', assetType: 'stock', aliases: ['msft','microsoft'], keywords: ['微软','Microsoft'] },
+  'GOOGL': { name: '谷歌', assetType: 'stock', aliases: ['googl','google','goog le'], keywords: ['谷歌','Google','GOOGL'] },
+  'AMZN':  { name: '亚马逊', assetType: 'stock', aliases: ['amzn','amazon'], keywords: ['亚马逊','Amazon'] },
+  'META':  { name: 'Meta', assetType: 'stock', aliases: ['meta','facebook','fb'], keywords: ['Meta','Facebook'] },
+  'AMD':   { name: 'AMD', assetType: 'stock', aliases: ['amd','a md'], keywords: ['AMD'] },
+  'INTC':  { name: '英特尔', assetType: 'stock', aliases: ['intc','intel','inte l'], keywords: ['英特尔','Intel'] },
+  'NFLX':  { name: '奈飞', assetType: 'stock', aliases: ['nflx','netflix'], keywords: ['奈飞','Netflix'] },
+  'BABA':  { name: '阿里巴巴', assetType: 'stock', aliases: ['baba','alibaba'], keywords: ['阿里巴巴','BABA'] },
+  'TSM':   { name: '台积电', assetType: 'stock', aliases: ['tsm','tsmc'], keywords: ['台积电','TSMC'] },
+  'PLTR':  { name: 'Palantir', assetType: 'stock', aliases: ['pltr','palantir'], keywords: ['Palantir'] },
+  'COIN':  { name: 'Coinbase', assetType: 'stock', aliases: ['coin','coinbase','coin base'], keywords: ['Coinbase'] },
+  'MSTR':  { name: 'MicroStrategy', assetType: 'stock', aliases: ['mstr','microstrategy'], keywords: ['MicroStrategy','MSTR'] },
+  'SPY':   { name: '标普500 ETF', assetType: 'stock', aliases: ['spy','s py'], keywords: ['标普500','SPY','sp500'] },
+  'QQQ':   { name: '纳斯达克100 ETF', assetType: 'stock', aliases: ['qqq','q qq'], keywords: ['纳斯达克','QQQ','纳指'] },
+  'IWM':   { name: '罗素2000 ETF', assetType: 'stock', aliases: ['iwm'], keywords: ['罗素','IWM'] },
+  'DIA':   { name: '道琼斯 ETF', assetType: 'stock', aliases: ['dia'], keywords: ['道琼斯','DIA'] },
+
+  // ====== 港股 (HK Stocks) ======
+  '0700.HK': { name: '腾讯控股', assetType: 'stock', aliases: ['0700','00700','700.hk','0700hk','腾讯'], keywords: ['腾讯','00700'] },
+  '9988.HK': { name: '阿里巴巴-SW', assetType: 'stock', aliases: ['9988','09988','9988hk','阿里巴巴'], keywords: ['阿里','9988'] },
+  '3690.HK': { name: '美团-W', assetType: 'stock', aliases: ['3690','03690','3690hk','美团'], keywords: ['美团','3690'] },
+  '9618.HK': { name: '京东集团-SW', assetType: 'stock', aliases: ['9618','09618','9618hk','京东'], keywords: ['京东','9618'] },
+  '9999.HK': { name: '网易-S', assetType: 'stock', aliases: ['9999','09999','9999hk','网易'], keywords: ['网易','9999'] },
+  '1810.HK': { name: '小米集团-W', assetType: 'stock', aliases: ['1810','01810','1810hk','小米'], keywords: ['小米','1810'] },
+  '1211.HK': { name: '比亚迪股份', assetType: 'stock', aliases: ['1211','01211','1211hk','比亚迪'], keywords: ['比亚迪','1211','BYD'] },
+  '2318.HK': { name: '中国平安', assetType: 'stock', aliases: ['2318','02318','2318hk','平安'], keywords: ['平安','2318'] },
+  '0388.HK': { name: '香港交易所', assetType: 'stock', aliases: ['0388','00388','388.hk','港交所'], keywords: ['港交所','0388','388'] },
+
+  // ====== A股 (China A-Shares) ======
+  '600519.SH': { name: '贵州茅台', assetType: 'stock', aliases: ['600519','茅台'], keywords: ['茅台','600519'] },
+  '000858.SZ': { name: '五粮液', assetType: 'stock', aliases: ['000858','五粮液'], keywords: ['五粮液','000858'] },
+  '300750.SZ': { name: '宁德时代', assetType: 'stock', aliases: ['300750','宁德'], keywords: ['宁德时代','300750','宁德'] },
+  '000001.SZ': { name: '平安银行', assetType: 'stock', aliases: ['000001'], keywords: ['平安银行','000001'] },
+  '601318.SH': { name: '中国平安', assetType: 'stock', aliases: ['601318'], keywords: ['中国平安','601318'] },
+  '002594.SZ': { name: '比亚迪', assetType: 'stock', aliases: ['002594'], keywords: ['比亚迪','002594'] },
+  '600036.SH': { name: '招商银行', assetType: 'stock', aliases: ['600036'], keywords: ['招商银行','600036'] },
+  '000651.SZ': { name: '格力电器', assetType: 'stock', aliases: ['000651'], keywords: ['格力','000651'] },
+  '600900.SH': { name: '长江电力', assetType: 'stock', aliases: ['600900'], keywords: ['长江电力','600900'] },
+  '300059.SZ': { name: '东方财富', assetType: 'stock', aliases: ['300059'], keywords: ['东方财富','300059'] },
+
+  // ====== 股指期货 (Index Futures) ======
+  'ES':  { name: '标普500期货', assetType: 'futures', aliases: ['es/usdt','esusdt','es futures','es!'], keywords: ['标普期货','ES','spx期货'] },
+  'NQ':  { name: '纳斯达克期货', assetType: 'futures', aliases: ['nq/usdt','nqusdt','nq futures','nq!'], keywords: ['纳指期货','NQ','nasdaq期货'] },
+  'YM':  { name: '道琼斯期货', assetType: 'futures', aliases: ['ym/usdt','ymusdt','ym!'], keywords: ['道指期货','YM'] },
+  'RTY': { name: '罗素2000期货', assetType: 'futures', aliases: ['rty/usdt','rtyusdt'], keywords: ['罗素期货','RTY'] },
+  'HSI': { name: '恒生指数期货', assetType: 'futures', aliases: ['hsi/usdt','hsiusdt','hsi!','恒指期货'], keywords: ['恒指','HSI','恒生'] },
+  'A50': { name: '富时A50期货', assetType: 'futures', aliases: ['a50/usdt','a50usdt','a50!','xina50'], keywords: ['A50','富时A50'] },
+  'DAX': { name: '德国DAX期货', assetType: 'futures', aliases: ['dax/usdt','daxusdt','dax!'], keywords: ['DAX','德国'] },
+  'NI225':{ name: '日经225期货', assetType: 'futures', aliases: ['ni225/usdt','ni225usdt','nikkei'], keywords: ['日经','NI225','nikkei'] },
+};
+
+// Build lookup map from aliases → canonical symbol
+const ALIAS_MAP = {};
+for (const [canonical, info] of Object.entries(INSTRUMENT_KB)) {
+  ALIAS_MAP[canonical.toLowerCase()] = canonical;
+  for (const alias of info.aliases) {
+    ALIAS_MAP[alias.toLowerCase().replace(/\s+/g, '')] = canonical;
+  }
+}
+
+// Build keyword → canonical symbol map
+const KEYWORD_MAP = {};
+for (const [canonical, info] of Object.entries(INSTRUMENT_KB)) {
+  for (const kw of info.keywords) {
+    KEYWORD_MAP[kw.toLowerCase()] = canonical;
+  }
+}
+
+/**
+ * Try to match a raw symbol string (possibly OCR-mangled) to a known instrument.
+ * Returns { symbol, name, assetType } or null.
+ */
+function resolveInstrument(rawSymbol) {
+  if (!rawSymbol) return null;
+  // Clean: lowercase, remove spaces, normalize
+  let cleaned = rawSymbol.toLowerCase().replace(/[\s\-_.]+/g, '').trim();
+  if (!cleaned || cleaned.length < 2) return null;
+
+  // 1. Exact alias match
+  if (ALIAS_MAP[cleaned]) {
+    const canonical = ALIAS_MAP[cleaned];
+    return { symbol: canonical, name: INSTRUMENT_KB[canonical].name, assetType: INSTRUMENT_KB[canonical].assetType };
+  }
+
+  // 2. Try inserting / between known halves (e.g., "btc" + "usdt")
+  for (const suffix of ['usdt', 'usd', 'cny', 'jpy', 'eur', 'gbp', 'cad', 'aud']) {
+    if (cleaned.endsWith(suffix) && cleaned.length > suffix.length) {
+      const base = cleaned.slice(0, -suffix.length);
+      const attempt = base + '/' + suffix.toUpperCase();
+      const lookup = attempt.toLowerCase().replace(/\s+/g, '');
+      if (ALIAS_MAP[lookup]) {
+        const canonical = ALIAS_MAP[lookup];
+        return { symbol: canonical, name: INSTRUMENT_KB[canonical].name, assetType: INSTRUMENT_KB[canonical].assetType };
+      }
+    }
+  }
+
+  // 3. Fuzzy: check if cleaned contains any known alias
+  // e.g., "cluusdt" contains "cl" at start
+  for (const [alias, canonical] of Object.entries(ALIAS_MAP)) {
+    const aliasClean = alias.toLowerCase().replace(/[\s\-_.]+/g, '');
+    if (aliasClean.length < 3) continue;
+    // Check if the cleaned text starts with or contains the alias
+    if (cleaned.startsWith(aliasClean) || cleaned.endsWith(aliasClean)) {
+      return { symbol: canonical, name: INSTRUMENT_KB[canonical].name, assetType: INSTRUMENT_KB[canonical].assetType };
+    }
+    // Edit distance < 25%: simple char-level check
+    if (Math.abs(cleaned.length - aliasClean.length) <= 2) {
+      const dist = levenshteinDist(cleaned, aliasClean);
+      if (dist <= 2 && aliasClean.length >= 3) {
+        return { symbol: canonical, name: INSTRUMENT_KB[canonical].name, assetType: INSTRUMENT_KB[canonical].assetType };
+      }
+    }
+  }
+
+  // 4. Keyword match: if raw text contains a known keyword
+  const lowerRaw = rawSymbol.toLowerCase();
+  for (const [kw, canonical] of Object.entries(KEYWORD_MAP)) {
+    if (lowerRaw.includes(kw)) {
+      return { symbol: canonical, name: INSTRUMENT_KB[canonical].name, assetType: INSTRUMENT_KB[canonical].assetType };
+    }
+  }
+
+  return null;
+}
+
+function levenshteinDist(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+/* ================================================================
+   SECTION 8d: Smart Paste (with instrument knowledge)
+   ================================================================ */
+
+/**
+ * Filter chart/screenshot noise from OCR text.
+ * TradingView screenshots produce lots of price-scale numbers
+ * that confuse parsing. This keeps signal, removes noise.
+ */
+function filterChartNoise(ocrText) {
+  if (!ocrText) return '';
+  const lines = ocrText.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 5) return ocrText; // Too short to be a chart screenshot
+
+  const kept = [];
+
+  for (let line of lines) {
+    // Skip empty
+    if (!line) continue;
+
+    // --- NOISE: Pure number lines (price scale artifacts) ---
+    // e.g., "42350.00" or "42,350.00" or "42350"
+    if (/^[\d,]+\.?\d{0,4}$/.test(line)) continue;
+
+    // --- NOISE: Lines that are just multiple short numbers (OHLC bars, indicator values) ---
+    // e.g., "42350 42380 42320 42360" (O H L C)
+    const numbersOnly = line.match(/[\d,.]+/g);
+    if (numbersOnly && numbersOnly.length >= 3 && line.replace(/[\d,.\s]+/g, '').length < 3) {
+      continue;
+    }
+
+    // --- NOISE: Timeframe labels without context ---
+    // e.g., "1h 4h 1D 1W 1M" or just "15m"
+    if (/^(?:\d+[smhdwM]\s*)+$/.test(line)) continue;
+
+    // --- NOISE: Pure symbol-like short strings without context (candle labels) ---
+    // e.g., "M5" "H1" when alone on a line
+    if (/^[A-Z]{1,2}\d{1,2}$/.test(line)) continue;
+
+    // --- NOISE: Single digit or very short (OCR artifact) ---
+    if (line.length < 2) continue;
+
+    // --- SIGNAL: Lines with trading keywords ---
+    if (/(?:buy|sell|long|short|做多|做空|买入|卖出|开仓|平仓|止盈|止损|entry|exit|成交|价格|数量|volume|盈亏|pnl|杠杆|leverage|费|fee)/i.test(line)) {
+      kept.push(line);
+      continue;
+    }
+
+    // --- SIGNAL: Lines with symbol pattern (e.g., BTC/USDT, AAPL) ---
+    if (/[A-Z]{2,10}\/[A-Z]{2,10}|[A-Z]{2,8}\s*-\s*[A-Z]{2,8}|[A-Z]{1,6}\.[A-Z]{1,4}/i.test(line)) {
+      kept.push(line);
+      continue;
+    }
+
+    // --- SIGNAL: Lines with currency symbols ---
+    if (/[¥$€£₮]\s*\d|USD|USDT|CNY|EUR|GBP/i.test(line)) {
+      kept.push(line);
+      continue;
+    }
+
+    // --- SIGNAL: Lines with +/- and percentage (price change) ---
+    if (/[+\-]\s*\d+\.?\d*\s*%/.test(line)) {
+      kept.push(line);
+      continue;
+    }
+
+    // --- AMBIGUOUS: Keep if it has letters mixed with numbers (could be symbol+price) ---
+    if (/[A-Za-z].*\d|\d.*[A-Za-z]/.test(line) && line.length > 3) {
+      kept.push(line);
+      continue;
+    }
+
+    // --- AMBIGUOUS: Keep lines with more than 15 chars (likely meaningful text) ---
+    if (line.length > 15) {
+      kept.push(line);
+      continue;
+    }
+
+    // --- NOISE: Lines with high ratio of non-ASCII/special chars (garbled OCR from chart graphics) ---
+    // Count alphanumeric + common punctuation vs total chars
+    const readable = (line.match(/[A-Za-z0-9一-鿿㐀-䶿\s.,%+\-¥$€£₮/()/=:>]+/g) || []).join('').length;
+    const ratio = readable / Math.max(line.length, 1);
+    if (ratio < 0.35 && line.length > 8) continue; // <35% readable → garbled chart artifact
+
+    // --- NOISE: Lines with box-drawing or special Unicode chart characters ---
+    if (/[│─┌┐└┘├┤┬┴┼═║╒╓╔╕╖╗╘╙╚╛╜╝╞╟╠╡╢╣╤╥╦╧╨╩╪╫╬▀▄█▌▐░▒▓■□▪▫●○◆◇▲△►◄]/.test(line)) continue;
+
+    // --- AMBIGUOUS: Keep any line with at least 4 chars that isn't pure whitespace ---
+    if (line.length >= 4) {
+      kept.push(line);
+      continue;
+    }
+
+    // Everything else: drop (likely noise)
+  }
+
+  // Adaptive: if we filtered out >80% of lines, use light mode (keep more)
+  const keptRatio = kept.length / Math.max(lines.length, 1);
+  if (keptRatio < 0.2 && lines.length > 10) {
+    // Light filter: only remove pure-number lines and very short fragments
+    const lightKept = lines.filter(l => {
+      if (!l || l.length < 2) return false;
+      if (/^[\d,.\s]+$/.test(l) && l.length < 20) return false; // pure numbers only if short
+      return true;
+    });
+    if (lightKept.length > kept.length) {
+      return lightKept.join('\n');
+    }
+  }
+
+  // If we filtered too aggressively and lost everything, return original
+  if (kept.length === 0) return ocrText;
+  return kept.join('\n');
+}
+
+// Fix common OCR number artifacts: misplaced commas, doubled decimals, etc.
+function normalizeOCRNumbers(text) {
+  if (!text) return text;
+  // Fix "63,2000" → "63,200.0" (comma + 4 digits after = decimal artifact)
+  // Pattern: digit(s), comma, 3-4 digits that look like a price
+  let fixed = text.replace(/\b(\d{1,3}),(\d{3,4})\b/g, function(match, before, after) {
+    // "63,2000" → "63200" then re-format
+    const num = parseInt(before + after, 10);
+    // If this looks like a price near BTC range (~60k), it's likely a valid number with OCR artifact
+    if (after.length === 4 && num > 10000) {
+      // "63,2000" → "63,200": drop the last digit (OCR artifact)
+      return before + ',' + after.slice(0, 3);
+    }
+    return match;
+  });
+
+  // Fix "61.295.3" → "61,295.3" (periods used instead of commas)
+  fixed = fixed.replace(/\b(\d{2,3})\.(\d{3})\.(\d)\b/g, '$1,$2.$3');
+
+  // Fix "63200.0" with no comma → add comma for readability
+  // (leave as-is, smartParse handles it)
+
+  return fixed;
+}
+
+function smartParse(rawText) {
+  if (!rawText || !rawText.trim()) return null;
+  // Normalize: collapse whitespace, handle OCR artifacts
+  let text = rawText.replace(/\s+/g, ' ').trim();
+  // Also try line-by-line for structured data
+  const lines = rawText.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+  const allText = text; // normalized single-line
+  const result = {};
+
+  // ====== Symbol detection (with knowledge base) ======
+  // Step 1: Try regex patterns to extract a raw symbol from text
+  let rawSymbol = null;
+  const symbolPatterns = [
+    // Crypto pairs with slash: BTC/USDT
+    /\b([A-Z]{2,10}\/[A-Z]{2,10})\b/,
+    // Forex/crypto with dash: EUR-USD, BTC-USDT
+    /\b([A-Z]{2,10}[-][A-Z]{2,10})\b/,
+    // Chinese keyword + symbol: 标的 BTC, 代码 AAPL
+    /(?:标的|代码|symbol|ticker|合约|名称|品种)[：:\s]*([A-Za-z0-9\/\-]{2,20})/i,
+    // OCR-mangled: letters+numbers run together, then "usdt" or "usd" suffix
+    /\b([A-Za-z]{2,6}\d{0,2}usdt)\b/i,
+    // OCR-mangled: like "cluusdt", "btcu sdt"
+    /\b([A-Za-z]{2,10})\s*(usdt|usd|cny|jpy)\b/i,
+    // Stock ticker with exchange suffix
+    /\b([A-Z]{1,6}\.[A-Z]{1,4})\b/,
+    // Chinese stock code (6 digits)
+    /\b(\d{6})\b/,
+    // Bare uppercase symbol
+    /\b([A-Z]{2,8})\b/,
+  ];
+  for (let p of symbolPatterns) {
+    const m = allText.match(p);
+    if (m) {
+      rawSymbol = m[1].replace(/\s+/g, '');
+      if (m[2]) rawSymbol += m[2].toUpperCase(); // Combine if two groups matched
+      break;
+    }
+  }
+
+  // Step 2: Try to find symbol from OCR-mangled text by looking for known patterns
+  // e.g., "cluusdt" → should match CL/USDT
+  if (!rawSymbol) {
+    // Look for any word that might be a mangled symbol
+    const wordMatch = allText.match(/\b([A-Za-z]{2,15})\b/);
+    if (wordMatch) {
+      rawSymbol = wordMatch[1];
+    }
+  }
+
+  // Step 3: Resolve via knowledge base (fuzzy match + aliases)
+  if (rawSymbol) {
+    const resolved = resolveInstrument(rawSymbol);
+    if (resolved) {
+      result.symbol = resolved.symbol;
+      result.assetType = resolved.assetType;
+      result._instrumentName = resolved.name;
+    } else {
+      // Fallback: just use the raw symbol as-is, try to normalize
+      let cleaned = rawSymbol.toUpperCase().replace(/\s+/g, '');
+      // If it ends with USDT/USD/CNY/JPY but has no slash, add one
+      const quoteMatch = cleaned.match(/^(.+?)(USDT|USD|CNY|JPY|EUR|GBP|CAD|AUD)$/i);
+      if (quoteMatch) {
+        result.symbol = quoteMatch[1].toUpperCase() + '/' + quoteMatch[2].toUpperCase();
+      } else {
+        result.symbol = cleaned;
+      }
+    }
+  }
+
+  // ---- TradingView/Exchange OCR specific patterns ----
+  // "BTCUSDT Perpetual Swap Contract - 15 - OKX" or "永续合约"
+  const tvContractMatch = allText.match(/(?:Perpetual|永续|交割|当周|次周|季度|合约|Swap|Contract|Futures)/i);
+  if (tvContractMatch) {
+    result.assetType = 'futures';
+    // Screenshots are almost always of active positions → default to open + long
+    if (!result.status) result.status = 'open';
+    if (!result.direction) result.direction = 'long';
+    if (!result.entryDate) result.entryDate = new Date().toISOString().slice(0, 10); // today
+    // Try harder: "XXXUSDT" or "XXXUSD" without slash in title
+    if (!result.symbol) {
+      const tvSym = allText.match(/\b([A-Z]{2,8})(USDT|USD|USDC|BUSD|BTC|ETH)\b/i);
+      if (tvSym) {
+        result.symbol = tvSym[1].toUpperCase() + '/' + tvSym[2].toUpperCase();
+      }
+    }
+    // Extract timeframe: "15" after dash = 15min
+    const tfMatch = allText.match(/[-]\s*(\d+)\s*[-]/);
+    if (tfMatch) result._timeframe = tfMatch[1] + 'min';
+  }
+
+  // "开 X 高 Y 低 Z 收 W" OHLC pattern
+  const ohlcMatch = allText.match(/开\s*([\d,.]+).*?高\s*([\d,.]+).*?低\s*([\d,.]+).*?收\s*([\d,.]+)/);
+  if (ohlcMatch) {
+    const o = parseFloat(ohlcMatch[1].replace(/,/g, ''));
+    const h = parseFloat(ohlcMatch[2].replace(/,/g, ''));
+    const l = parseFloat(ohlcMatch[3].replace(/,/g, ''));
+    const c = parseFloat(ohlcMatch[4].replace(/,/g, ''));
+    if (!isNaN(c)) {
+      // The "收" price is the current/reference price
+      if (!result.entryPrice) result.entryPrice = c;
+      result._ohlc = { open: o, high: h, low: l, close: c };
+    }
+  }
+
+  // Exchange detection for notes
+  const exchangeMatch = allText.match(/\b(OKX|Binance|Bybit|Bitget|HTX|Gate|MEXC|Kucoin|Coinbase|币安|欧易)\b/i);
+  if (exchangeMatch) result._exchange = exchangeMatch[1];
+
+  // If we have _exchange or _timeframe, add to notes
+  const contextNotes = [];
+  if (result._exchange) contextNotes.push('交易所: ' + result._exchange);
+  if (result._timeframe) contextNotes.push('周期: ' + result._timeframe);
+  if (result._ohlc && !result.entryPrice) {
+    contextNotes.push('OHLC 开' + result._ohlc.open + ' 高' + result._ohlc.high + ' 低' + result._ohlc.low + ' 收' + result._ohlc.close);
+  }
+
+  // Step 4: Also check for plain Chinese keywords like 原油/黄金/比特币 in OCR text
+  if (!result.symbol) {
+    for (const [kw, canonical] of Object.entries(KEYWORD_MAP)) {
+      if (allText.includes(kw)) {
+        result.symbol = canonical;
+        result.assetType = INSTRUMENT_KB[canonical].assetType;
+        result._instrumentName = INSTRUMENT_KB[canonical].name;
+        break;
+      }
+    }
+  }
+
+  // If assetType not set yet, guess from resolved symbol
+  if (!result.assetType && result.symbol) {
+    const resolved = resolveInstrument(result.symbol);
+    if (resolved) {
+      result.assetType = resolved.assetType;
+      result._instrumentName = resolved.name;
+    }
+  }
+
+  // ====== Direction detection ======
+  const longPatterns = /买入|做多|开多|多单|多仓|看涨|long|buy/i;
+  const shortPatterns = /卖出|做空|开空|空单|空仓|看跌|short|sell/i;
+  if (longPatterns.test(allText)) result.direction = 'long';
+  else if (shortPatterns.test(allText)) result.direction = 'short';
+
+  // ====== Status detection ======
+  const closedPatterns = /平仓|已平|已关|出场|止盈|止损|closed|exit|已结|完成/i;
+  if (closedPatterns.test(allText)) result.status = 'closed';
+  // Default to open if we have any signal that this is a trade (symbol or price found)
+  // Screenshots are almost always of active positions
+  if (!result.status && (result.symbol || result.entryPrice)) result.status = 'open';
+  if (!result.direction) result.direction = 'long'; // default direction
+
+  // ====== P&L detection ======
+  // OCR often captures P&L lines like: "盈亏 +750.00" or "+1,234.56" or "-200"
+  const pnlPatterns = [
+    /(?:盈亏|pnl|p\/l|损益|盈亏金额)[：:\s]*([+\-]?\s*[¥$]?[\d,]+\.?\d*)/i,
+    /(?:盈利|亏损)[：:\s]*([+\-]?\s*[¥$]?[\d,]+\.?\d*)/i,
+    /([+\-])\s*[¥$]?\s*([\d,]+\.?\d{1,4})(?!\s*(?:价|价格))/,
+  ];
+  for (let p of pnlPatterns) {
+    const m = allText.match(p);
+    if (m) {
+      const sign = m[1] || '';
+      const val = parseFloat((m[2] || m[1] || '0').replace(/[,¥$]/g, ''));
+      if (val > 0 && val < 100000000) {
+        result._pnlDetected = (sign === '-' ? -val : val);
+        break;
+      }
+    }
+  }
+
+  // ====== Price extraction (improved) ======
+  // Strategy: find lines/segments with keywords like 价格/入场/成交/price
+  const priceKeywords = /(?:价格|成交价|入场价|买入价|卖出价|出场价|开仓价|平仓价|均价|price|entry|exit|open|close|成交)[：:\s]*[¥$]?\s*([\d,]+\.?\d{0,6})/gi;
+  let kwPrices = [];
+  let pm;
+  while ((pm = priceKeywords.exec(rawText)) !== null) {
+    kwPrices.push(parseFloat(pm[1].replace(/,/g, '')));
+  }
+
+  if (kwPrices.length >= 2) {
+    result.entryPrice = kwPrices[0];
+    result.exitPrice = kwPrices[kwPrices.length - 1];
+  } else if (kwPrices.length === 1) {
+    result.entryPrice = kwPrices[0];
+  } else {
+    // Fallback: extract all numbers that look like prices
+    // In TradingView screenshots, the first prominent number near the symbol is the current price;
+    // numbers clustered near the bottom are price scale — prefer earlier numbers.
+    const allNums = [];
+    const numRe = /[¥$]?\s*([\d,]{2,}\.?\d{0,6})/g;
+    let nm;
+    while ((nm = numRe.exec(allText)) !== null) {
+      const val = parseFloat(nm[1].replace(/,/g, ''));
+      if (val > 0.5 && val < 100000000) {
+        allNums.push({ val: val, pos: nm.index });
+      }
+    }
+    // Sort by position (earlier in text = closer to symbol = more likely the main price)
+    allNums.sort((a, b) => a.pos - b.pos);
+    const unique = [];
+    const seen = new Set();
+    for (let n of allNums) {
+      const rounded = Math.round(n.val * 100) / 100; // dedupe by 2 decimal places
+      if (!seen.has(rounded)) { seen.add(rounded); unique.push(n.val); }
+    }
+    if (unique.length >= 2) {
+      // First = likely current/entry price near symbol
+      // Last = likely price scale extreme
+      result.entryPrice = unique[0];
+      // If the spread is small (<5%), second might be exit; otherwise it's scale
+      const spread = Math.abs(unique[1] - unique[0]) / unique[0];
+      if (spread < 0.05 && unique.length >= 2) {
+        result.exitPrice = unique[1];
+      }
+    } else if (unique.length === 1) {
+      result.entryPrice = unique[0];
+    }
+  }
+
+  // ====== Quantity extraction (improved) ======
+  const qtyPatterns = [
+    /(\d+\.?\d*)\s*(?:股|张|份|手|个|枚|张|BTC|ETH|SOL|USDT|lot|share|contract|unit)/i,
+    /(?:数量|成交|qty|quantity|volume|手数|张数)[：:\s]*(\d+\.?\d*)/i,
+    /(?:x|×)\s*(\d+\.?\d*)/i,
+  ];
+  for (let p of qtyPatterns) {
+    const m = allText.match(p);
+    if (m) { result.quantity = parseFloat(m[1]); break; }
+  }
+  // If still no quantity, look for standalone small decimal numbers (likely qty for crypto)
+  if (!result.quantity) {
+    const smallNum = allText.match(/\b(\d+\.?\d{1,4})\b/g);
+    if (smallNum) {
+      const vals = smallNum.map(s => parseFloat(s)).filter(v => v > 0.0001 && v < 10000);
+      // Pick the first one that isn't already used as a price
+      if (vals.length > 0) {
+        const usedPrices = new Set([result.entryPrice, result.exitPrice].filter(Boolean));
+        const qtyCandidates = vals.filter(v => !usedPrices.has(v));
+        if (qtyCandidates.length > 0) result.quantity = qtyCandidates[0];
+      }
+    }
+  }
+
+  // ====== Date extraction (improved) ======
+  const datePatterns = [
+    /(\d{4}[-/]\d{1,2}[-/]\d{1,2})/,
+    /(\d{1,2}[-/]\d{1,2})\s*(\d{1,2}:\d{1,2})?/,
+    /(?:日期|时间|date|time|开仓|平仓)[：:\s]*(\d{4}[-/]\d{1,2}[-/]\d{1,2})/i,
+    // Chinese date: 2026年06月01日
+    /(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/,
+  ];
+  for (let p of datePatterns) {
+    const m = rawText.match(p);
+    if (m) {
+      let dateStr;
+      if (m.length === 4 && m[1] && m[2] && m[3]) {
+        // Chinese date format
+        dateStr = m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+      } else {
+        dateStr = m[1].replace(/\//g, '-');
+        if (/^\d{1,2}-\d{1,2}$/.test(dateStr)) {
+          dateStr = new Date().getFullYear() + '-' + dateStr;
+        }
+      }
+      const d = new Date(dateStr + 'T00:00:00');
+      if (!isNaN(d.getTime())) {
+        if (!result.entryDate) {
+          result.entryDate = dateStr;
+        } else {
+          // Second date found — might be exit date
+          result.exitDate = dateStr;
+        }
+        // Don't break — keep looking for more dates
+      }
+    }
+  }
+
+  // ====== Fees extraction ======
+  const feePatterns = [
+    /(?:手续费|佣金|fees?|commission)[：:\s]*[¥$]?\s*([\d,]+\.?\d*)/i,
+    /(?:fee)[：:\s]*[¥$]?\s*([\d,]+\.?\d*)/i,
+  ];
+  for (let p of feePatterns) {
+    const m = allText.match(p);
+    if (m) { result.fees = parseFloat(m[1].replace(/,/g, '')); break; }
+  }
+
+  // ====== Leverage extraction ======
+  const levPatterns = [
+    /(\d+\.?\d*)\s*[xX倍]/,
+    /(?:杠杆|倍数|leverage)[：:\s]*(\d+\.?\d*)/i,
+    /(\d+\.?\d*)\s*(?:倍杠杆|x杠杆)/i,
+    /\b(\d+)x\b/,
+  ];
+  for (let p of levPatterns) {
+    const m = allText.match(p);
+    if (m) { result.leverage = parseFloat(m[1]); break; }
+  }
+
+  // ====== Volume extraction ======
+  const volPatterns = [
+    /(?:成交量|成交额|量|volume|vol)[：:\s\-]*([A-Z]{2,6})?\s*([\d,]+\.?\d*)/i,
+    /(\d+\.?\d*)\s*(?:张|手)\b/,
+  ];
+  for (let p of volPatterns) {
+    const m = allText.match(p);
+    if (m) {
+      const volVal = parseFloat((m[2] || m[1]).replace(/,/g, ''));
+      if (volVal > 0 && volVal < 1000000000) { result.volume = volVal; break; }
+    }
+  }
+
+  // ====== Avg price extraction ======
+  const avgPxPatterns = [
+    /(?:成交均价|均价|avg.?price|成交平均)[：:\s]*[¥$]?\s*([\d,]+\.?\d*)/i,
+  ];
+  for (let p of avgPxPatterns) {
+    const m = allText.match(p);
+    if (m) { result.avgPrice = parseFloat(m[1].replace(/,/g, '')); break; }
+  }
+
+  // ====== Currency detection ======
+  if (/¥|元|人民币|CNY|RMB/i.test(allText)) result.currency = 'CNY';
+  else if (/USDT|usdt|UST/i.test(allText)) result.currency = 'USDT';
+  else if (/\$|USD|美元|美金|usd/i.test(allText)) result.currency = 'USD';
+  else if (/€|EUR|欧元|eur/i.test(allText)) result.currency = 'EUR';
+  else if (/£|GBP|英镑|gbp/i.test(allText)) result.currency = 'GBP';
+  else if (/HK\$|HKD|港币|港元|hkd/i.test(allText)) result.currency = 'HKD';
+  else if (/JP¥|JPY|日元|jpy/i.test(allText)) result.currency = 'JPY';
+  else if (/₩|KRW|韩元|krw/i.test(allText)) result.currency = 'KRW';
+
+  // ====== Manual P&L detection ======
+  // Already captured in P&L detection as _pnlDetected, but check for explicit manual marker
+  const manPnlMatch = allText.match(/(?:手动盈亏|盈亏|pnl|p\/l)[：:\s]*([+\-]?\s*[¥$]?[\d,]+\.?\d*)/i);
+  // Use existing _pnlDetected if not already set
+
+  // ====== Asset type guess ======
+  if (result.symbol) {
+    if (/\/|-/.test(result.symbol) && /[A-Z]{3,}\/[A-Z]{3,}/.test(result.symbol)) {
+      result.assetType = 'crypto';
+    } else if (/^\d{6}$/.test(result.symbol)) {
+      result.assetType = 'stock';
+    } else if (/^[A-Z]{1,5}\.[A-Z]{1,4}$/.test(result.symbol)) {
+      result.assetType = 'stock';
+    } else if (/^[A-Z]{2,8}$/.test(result.symbol)) {
+      result.assetType = 'stock';
+    }
+  }
+
+  return result;
+}
+
+/* ================================================================
+   SECTION 8d: OCR (Image Recognition)
+   ================================================================ */
+let _ocrWorker = null;
+let _ocrLoading = false;
+
+async function getOCRWorker() {
+  if (_ocrWorker) return _ocrWorker;
+  if (_ocrLoading) {
+    // Wait for existing load
+    let retries = 0;
+    while (_ocrLoading && retries < 100) {
+      await new Promise(r => setTimeout(r, 200));
+      retries++;
+    }
+    if (_ocrWorker) return _ocrWorker;
+  }
+  _ocrLoading = true;
+  try {
+    // Check if Tesseract is loaded (CDN might have failed)
+    if (typeof Tesseract === 'undefined') {
+      throw new Error('OCR引擎未加载，请检查网络连接后刷新页面');
+    }
+    const progressEl = document.getElementById('ocr-progress-text');
+    if (progressEl) progressEl.textContent = '正在加载识别引擎...';
+
+    try {
+      _ocrWorker = await Tesseract.createWorker('chi_sim+eng', 1, {
+        logger: function(m) {
+          if (m.status === 'recognizing text' && progressEl) {
+            const pct = Math.round(m.progress * 100);
+            progressEl.textContent = '正在识别文字... ' + pct + '%';
+          } else if (progressEl) {
+            progressEl.textContent = m.status;
+          }
+        },
+      });
+    } catch (e) {
+      // Chinese lang pack failed, fall back to English only
+      console.warn('chi_sim+eng failed, falling back to eng', e);
+      if (progressEl) progressEl.textContent = '中文包加载失败，使用英文识别...';
+      _ocrWorker = await Tesseract.createWorker('eng', 1);
+    }
+    return _ocrWorker;
+  } finally {
+    _ocrLoading = false;
+  }
+}
+
+async function performOCR(imageDataUrl) {
+  const progressDiv = document.getElementById('ocr-progress');
+  const progressText = document.getElementById('ocr-progress-text');
+  const resultDiv = document.getElementById('ocr-result-text');
+
+  if (progressDiv) progressDiv.style.display = 'block';
+  if (resultDiv) resultDiv.style.display = 'none';
+  if (progressText) progressText.textContent = '正在加载识别引擎...';
+
+  try {
+    const worker = await getOCRWorker();
+    if (!worker) throw new Error('OCR引擎加载失败');
+
+    // --- PASS 1: OCR on original image ---
+    if (progressText) progressText.textContent = '正在识别 (原图)...';
+    const result1 = await worker.recognize(imageDataUrl);
+    const raw1 = (result1.data.text || '').trim();
+
+    // --- PASS 2: OCR on preprocessed image ---
+    if (progressText) progressText.textContent = '正在预处理图像...';
+    const processed = await preprocessImageForOCR(imageDataUrl);
+    if (progressText) progressText.textContent = '正在识别 (增强)...';
+    const result2 = await worker.recognize(processed);
+    const raw2 = (result2.data.text || '').trim();
+
+    // --- Pick the better result (longer = more text found = better) ---
+    let rawText;
+    let whichPass;
+    if (raw1.length >= raw2.length) {
+      rawText = raw1;
+      whichPass = '原图';
+    } else {
+      rawText = raw2;
+      whichPass = '增强';
+    }
+
+    // If both are very sparse (< 30 chars), maybe Chinese failed, try English-only
+    if (rawText.length < 30) {
+      if (progressText) progressText.textContent = '尝试英文识别...';
+      try {
+        const workerEng = await Tesseract.createWorker('eng', 1);
+        const resultEng = await workerEng.recognize(imageDataUrl);
+        const rawEng = (resultEng.data.text || '').trim();
+        await workerEng.terminate();
+        if (rawEng.length > rawText.length) {
+          rawText = rawEng;
+          whichPass = '英文模式';
+        }
+      } catch (ee) { /* ignore */ }
+    }
+
+    // Apply chart noise filter
+    const filteredText = filterChartNoise(rawText);
+    // Fix OCR-mangled numbers (e.g., "63,2000" → "63,200.0", "61.295.3" → "61,295.3")
+    const normalizedText = normalizeOCRNumbers(filteredText || rawText);
+
+    if (progressDiv) progressDiv.style.display = 'none';
+    if (resultDiv) {
+      resultDiv.style.display = 'block';
+      const dropped = rawText.split('\n').length - filteredText.split('\n').length;
+      const totalLines = rawText.split('\n').length;
+      if (normalizedText && normalizedText.length > 20) {
+        resultDiv.textContent = '✅ 识别成功 [' + whichPass + '] (' + dropped + '/' + totalLines + '行噪音已过滤):\n' + normalizedText;
+      } else {
+        resultDiv.textContent = '⚠️ 识别内容较少 [' + whichPass + ']\n── 过滤后 ──\n' + (normalizedText || '(无)') + '\n── 原始文本（' + rawText.length + '字符）──\n' + (rawText || '(OCR无输出 - 请确认截图清晰度)');
+      }
+    }
+    const effective = (normalizedText && normalizedText.length > 10) ? normalizedText : rawText;
+    // Store for toggle button
+    const textarea = document.getElementById('smart-paste-input');
+    if (textarea) {
+      textarea.value = effective;
+      textarea.setAttribute('data-raw-text', rawText);
+      textarea.setAttribute('data-filtered-text', normalizedText || '');
+    }
+    const rawBtn = document.getElementById('smart-paste-use-raw');
+    if (rawBtn && normalizedText !== rawText && rawText.length > 20) {
+      rawBtn.style.display = 'inline-block';
+    }
+    return effective;
+  } catch (e) {
+    if (progressDiv) progressDiv.style.display = 'none';
+    if (resultDiv) {
+      resultDiv.style.display = 'block';
+      resultDiv.style.color = '#E53E3E';
+      resultDiv.textContent = '❌ 识别失败: ' + e.message;
+    }
+    return null;
+  }
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith('image/')) {
+      reject(new Error('请选择图片文件'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) { resolve(e.target.result); };
+    reader.onerror = function() { reject(new Error('文件读取失败')); };
+    reader.readAsDataURL(file);
+  });
+}
+
+function handleSmartPasteImage(imageDataUrl) {
+  // Show preview
+  const preview = document.getElementById('smart-paste-img-preview');
+  if (preview) {
+    preview.src = imageDataUrl;
+    preview.style.display = 'block';
+  }
+
+  // Run OCR
+  performOCR(imageDataUrl).then(function(text) {
+    if (text) {
+      // Put recognized text into the textarea
+      const textarea = document.getElementById('smart-paste-input');
+      if (textarea) {
+        textarea.value = text;
+      }
+      // Auto-parse
+      const parsed = smartParse(text);
+      if (parsed && Object.keys(parsed).length > 0) {
+        fillFormWithParsed(parsed);
+        showSmartPasteResult(parsed);
+      }
+    }
+  });
+}
+
+// Image compression: resize + convert to JPEG, returns base64 data URL
+// Preprocess image for better OCR: boost contrast, grayscale, sharpen
+function preprocessImageForOCR(dataUrl) {
+  return new Promise(function(resolve) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      // Draw original
+      ctx.drawImage(img, 0, 0);
+      // Get pixel data
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
+
+      // Convert to grayscale + mild contrast boost
+      for (let i = 0; i < pixels.length; i += 4) {
+        const gray = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+        // Mild contrast: 1.3 (was 1.8, too aggressive)
+        const contrast = 1.3;
+        const midpoint = 128;
+        let enhanced = ((gray - midpoint) * contrast) + midpoint;
+        enhanced = Math.max(0, Math.min(255, enhanced));
+        pixels[i] = pixels[i + 1] = pixels[i + 2] = enhanced;
+      }
+      ctx.putImageData(imageData, 0, 0);
+
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = function() { resolve(dataUrl); };
+    img.src = dataUrl;
+  });
+}
+
+function compressImage(dataUrl, maxW, quality) {
+  maxW = maxW || 600;
+  quality = quality || 0.5;
+  return new Promise(function(resolve) {
+    const img = new Image();
+    img.onload = function() {
+      const w = Math.min(img.width, maxW);
+      const h = Math.round(img.height * (w / img.width));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = function() { resolve(dataUrl); }; // fallback: use original
+    img.src = dataUrl;
+  });
+}
+
+// Render image thumbnails in form
+function renderFormImages(images) {
+  images = images || [];
+  let html = '<div class="img-thumbs" id="form-img-thumbs">';
+  for (let i = 0; i < images.length; i++) {
+    html += '<div class="img-thumb-wrap" style="width:70px;height:94px;">';
+    html += '<img src="' + images[i] + '" alt="截图' + (i + 1) + '" style="width:70px;height:60px;">';
+    html += '<span class="img-thumb-remove" data-img-idx="' + i + '">✕</span>';
+    html += '<button class="img-ocr-btn" data-img-idx="' + i + '" style="width:100%;height:20px;font-size:10px;background:#3182CE;color:#fff;border:none;border-radius:0 0 4px 4px;cursor:pointer;">🔍识别</button>';
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+// Collect images from form state
+function collectFormImages() {
+  if (!state._formImages || state._formImages.length === 0) return [];
+  return state._formImages;
+}
+
+function refreshFormImages() {
+  const container = document.getElementById('form-img-thumbs');
+  if (!container) return;
+  container.outerHTML = renderFormImages(state._formImages || []);
+}
+
+function fillFormWithParsed(parsed) {
+  if (parsed.symbol) { const el = document.getElementById('fld-symbol'); if (el) el.value = parsed.symbol; }
+  if (parsed.direction) {
+    const btns = document.querySelectorAll('#fld-direction .segmented-btn');
+    btns.forEach(b => { b.classList.toggle('active', b.dataset.val === parsed.direction); });
+  }
+  if (parsed.status) {
+    const btns = document.querySelectorAll('#fld-status .segmented-btn');
+    btns.forEach(b => { b.classList.toggle('active', b.dataset.val === parsed.status); });
+    const isOpen = parsed.status === 'open';
+    const condExit = document.getElementById('cond-exitPrice');
+    const condMark = document.getElementById('cond-markPrice');
+    const condLoss = document.getElementById('cond-lossReason');
+    if (condExit) condExit.classList.toggle('show', !isOpen);
+    if (condMark) condMark.classList.toggle('show', isOpen);
+    if (condLoss) condLoss.classList.toggle('show', !isOpen);
+  }
+  if (parsed.assetType) {
+    const btns = document.querySelectorAll('#fld-assetType .segmented-btn');
+    btns.forEach(b => { b.classList.toggle('active', b.dataset.val === parsed.assetType); });
+  }
+  if (parsed.entryPrice != null) { const el = document.getElementById('fld-entryPrice'); if (el) el.value = parsed.entryPrice; }
+  if (parsed.exitPrice != null) { const el = document.getElementById('fld-exitPrice'); if (el) el.value = parsed.exitPrice; }
+  if (parsed.quantity != null) { const el = document.getElementById('fld-quantity'); if (el) el.value = parsed.quantity; }
+  if (parsed.entryDate) { const el = document.getElementById('fld-entryDate'); if (el) el.value = parsed.entryDate; }
+  if (parsed.fees != null) { const el = document.getElementById('fld-fees'); if (el) el.value = parsed.fees; }
+  if (parsed.leverage != null) { const el = document.getElementById('fld-leverage'); if (el) el.value = parsed.leverage; }
+  if (parsed.volume != null) { const el = document.getElementById('fld-volume'); if (el) el.value = parsed.volume; }
+  if (parsed.avgPrice != null) { const el = document.getElementById('fld-avgPrice'); if (el) el.value = parsed.avgPrice; }
+  if (parsed.currency) { const el = document.getElementById('fld-currency'); if (el) el.value = parsed.currency; }
+  if (parsed.manualPnL != null) { const el = document.getElementById('fld-manualPnL'); if (el) el.value = parsed.manualPnL; }
+}
+
+function showSmartPasteResult(parsed) {
+  const resultEl = document.getElementById('smart-paste-result');
+  if (!resultEl) return;
+  const filled = [];
+  if (parsed.symbol) {
+    const label = parsed._instrumentName ? parsed.symbol + '（' + parsed._instrumentName + '）' : parsed.symbol;
+    filled.push('标的: ' + label);
+  }
+  if (parsed.direction) filled.push('方向: ' + (parsed.direction === 'long' ? '做多' : '做空'));
+  if (parsed.entryPrice) filled.push('入场价: ' + formatCurrency(parsed.entryPrice));
+  if (parsed.exitPrice) filled.push('出场价: ' + formatCurrency(parsed.exitPrice));
+  if (parsed.quantity) filled.push('数量: ' + parsed.quantity);
+  if (parsed.entryDate) filled.push('日期: ' + parsed.entryDate);
+  if (parsed.leverage) filled.push('倍数: ' + parsed.leverage + 'x');
+  if (parsed.volume) filled.push('成交量: ' + parsed.volume);
+  if (parsed.avgPrice) filled.push('成交均价: ' + formatCurrency(parsed.avgPrice));
+  if (parsed._pnlDetected) {
+    const cls = parsed._pnlDetected > 0 ? 'text-profit' : 'text-loss';
+    filled.push('盈亏: <span class="' + cls + '">' + formatCurrency(parsed._pnlDetected) + '</span>');
+  }
+  // TradingView context
+  const ctx = [];
+  if (parsed._exchange) ctx.push('🏦' + parsed._exchange);
+  if (parsed._timeframe) ctx.push('⏱' + parsed._timeframe);
+  if (parsed._ohlc) ctx.push('📊开' + parsed._ohlc.open + ' 收' + parsed._ohlc.close);
+
+  if (filled.length > 0 || ctx.length > 0) {
+    let msg = (filled.length > 0 ? '✅ 已识别: ' + filled.join('，') : '');
+    if (ctx.length > 0) msg += (msg ? '<br>' : '') + ctx.join(' · ');
+    msg += '<br><span style="color:var(--color-text-muted);">字段非必填，可留空直接保存</span>';
+    resultEl.innerHTML = msg;
+  } else {
+    resultEl.textContent = '未能识别交易信息，请手动填写';
+  }
+}
+
+/* ================================================================
+   SECTION 9: Event Delegation
+   ================================================================ */
+function setupEvents() {
+  // Bottom nav
+  document.getElementById('bottom-nav').addEventListener('click', function(e) {
+    const item = e.target.closest('.nav-item');
+    if (!item) return;
+    state.activeTab = parseInt(item.dataset.tab);
+    refreshState();
+    render();
+  });
+
+  // FAB
+  document.getElementById('fab-add').addEventListener('click', function() {
+    openModal(null);
+  });
+
+  // Modal close
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // Modal save
+  document.getElementById('modal-save').addEventListener('click', saveForm);
+
+  // Confirm
+  document.getElementById('confirm-cancel').addEventListener('click', hideConfirm);
+  document.getElementById('confirm-ok').addEventListener('click', function() {
+    if (state.confirmCallback) state.confirmCallback();
+    hideConfirm();
+  });
+
+  // Copy dialog
+  document.getElementById('copy-dialog-close').addEventListener('click', closeCopyDialog);
+  document.getElementById('copy-dialog-cancel').addEventListener('click', closeCopyDialog);
+  document.getElementById('copy-dialog-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeCopyDialog();
+  });
+  // Copy only (no save)
+  document.getElementById('copy-dialog-copy').addEventListener('click', function() {
+    const trade = state.trades.find(t => t.id === state._copyTradeId);
+    if (!trade) return;
+    const notes = document.getElementById('copy-review-notes').value;
+    const text = generateTradeSummary(trade, notes);
+    copyToClipboard(text);
+    closeCopyDialog();
+  });
+  // Save and copy
+  document.getElementById('copy-dialog-save-copy').addEventListener('click', function() {
+    const trade = state.trades.find(t => t.id === state._copyTradeId);
+    if (!trade) return;
+    const notes = document.getElementById('copy-review-notes').value;
+    updateTrade(trade.id, { reviewNotes: notes });
+    const text = generateTradeSummary({ ...trade, reviewNotes: notes }, notes);
+    copyToClipboard(text);
+    closeCopyDialog();
+    refreshState();
+    render();
+    showToast('笔记已保存 ✓');
+  });
+
+  // Smart paste (handled via body delegation since form is dynamically rendered)
+  document.body.addEventListener('click', function(e) {
+    // Smart paste toggle
+    if (e.target.closest('#smart-paste-toggle')) {
+      const section = document.getElementById('smart-paste-section');
+      if (section) section.classList.toggle('show');
+      return;
+    }
+    // Smart paste tab: text
+    if (e.target.closest('#smart-paste-text-tab')) {
+      document.getElementById('smart-paste-text-panel').style.display = 'block';
+      document.getElementById('smart-paste-img-panel').style.display = 'none';
+      document.getElementById('smart-paste-text-tab').classList.add('active');
+      document.getElementById('smart-paste-img-tab').classList.remove('active');
+      return;
+    }
+    // Smart paste tab: image
+    if (e.target.closest('#smart-paste-img-tab')) {
+      document.getElementById('smart-paste-text-panel').style.display = 'none';
+      document.getElementById('smart-paste-img-panel').style.display = 'block';
+      document.getElementById('smart-paste-img-tab').classList.add('active');
+      document.getElementById('smart-paste-text-tab').classList.remove('active');
+      return;
+    }
+    // Image drop zone click → open file picker
+    if (e.target.closest('#smart-paste-img-drop')) {
+      document.getElementById('smart-paste-file-input').click();
+      return;
+    }
+    // Smart paste: parse (from textarea or OCR result)
+    if (e.target.closest('#smart-paste-parse')) {
+      const input = document.getElementById('smart-paste-input');
+      const resultEl = document.getElementById('smart-paste-result');
+      if (!input || !input.value.trim()) {
+        if (resultEl) resultEl.textContent = '请先粘贴交易信息或上传截图';
+        return;
+      }
+      const parsed = smartParse(input.value);
+      if (!parsed || Object.keys(parsed).length === 0) {
+        if (resultEl) resultEl.textContent = '未能识别交易信息，请手动填写或调整粘贴内容';
+        return;
+      }
+      fillFormWithParsed(parsed);
+      showSmartPasteResult(parsed);
+      return;
+    }
+    // Smart paste: clear
+    if (e.target.closest('#smart-paste-clear')) {
+      const input = document.getElementById('smart-paste-input');
+      const resultEl = document.getElementById('smart-paste-result');
+      const preview = document.getElementById('smart-paste-img-preview');
+      const ocrResult = document.getElementById('ocr-result-text');
+      const rawBtn = document.getElementById('smart-paste-use-raw');
+      if (input) { input.value = ''; input.removeAttribute('data-raw-text'); input.removeAttribute('data-filtered-text'); }
+      if (resultEl) resultEl.textContent = '';
+      if (preview) { preview.src = ''; preview.style.display = 'none'; }
+      if (ocrResult) { ocrResult.style.display = 'none'; ocrResult.textContent = ''; }
+      if (rawBtn) rawBtn.style.display = 'none';
+      return;
+    }
+    // Smart paste: use raw OCR text (toggle between filtered and raw)
+    if (e.target.closest('#smart-paste-use-raw')) {
+      const input = document.getElementById('smart-paste-input');
+      const btn = document.getElementById('smart-paste-use-raw');
+      if (!input) return;
+      const raw = input.getAttribute('data-raw-text') || '';
+      const filtered = input.getAttribute('data-filtered-text') || '';
+      if (input.value === filtered && raw) {
+        // Currently using filtered, switch to raw
+        input.value = raw;
+        if (btn) btn.textContent = '🔄过滤';
+        showToast('已切换为原始OCR文本');
+      } else if (raw) {
+        // Currently using raw, switch back to filtered
+        input.value = filtered || raw;
+        if (btn) btn.textContent = '🔄原始';
+        showToast('已切换为过滤后文本');
+      }
+      // Re-parse with new text
+      const parsed = smartParse(input.value);
+      if (parsed && Object.keys(parsed).length > 1) {
+        fillFormWithParsed(parsed);
+        showSmartPasteResult(parsed);
+      }
+      return;
+    }
+    // Form image: drop zone click → open file picker
+    if (e.target.closest('#form-img-drop')) {
+      const fileInput = document.getElementById('form-img-file-input');
+      if (fileInput) fileInput.click();
+      return;
+    }
+    // Form image: remove thumbnail
+    if (e.target.closest('.img-thumb-remove')) {
+      const idx = parseInt(e.target.dataset.imgIdx);
+      if (!isNaN(idx) && state._formImages) {
+        state._formImages.splice(idx, 1);
+        refreshFormImages();
+      }
+      return;
+    }
+    // Form image: OCR this image to fill/correct form fields
+    if (e.target.closest('.img-ocr-btn')) {
+      const idx = parseInt(e.target.dataset.imgIdx);
+      if (!isNaN(idx) && state._formImages && state._formImages[idx]) {
+        const imgDataUrl = state._formImages[idx];
+        // Show smart paste section for progress feedback
+        const section = document.getElementById('smart-paste-section');
+        if (section) section.classList.add('show');
+        // Switch to text tab to show result
+        const textPanel = document.getElementById('smart-paste-text-panel');
+        const imgPanel = document.getElementById('smart-paste-img-panel');
+        if (textPanel) textPanel.style.display = 'block';
+        if (imgPanel) imgPanel.style.display = 'none';
+
+        performOCR(imgDataUrl).then(function(text) {
+          if (text) {
+            const textarea = document.getElementById('smart-paste-input');
+            if (textarea) textarea.value = text;
+            const parsed = smartParse(text);
+            if (parsed && Object.keys(parsed).length > 0) {
+              fillFormWithParsed(parsed);
+              showSmartPasteResult(parsed);
+              showToast('已识别并更新字段 ✓');
+            } else {
+              showToast('识别完成，未能解析交易信息');
+            }
+          }
+        });
+      }
+      return;
+    }
+  });
+
+  // Form image file input: handle selection (body delegation)
+  document.body.addEventListener('change', function(e) {
+    if (e.target.id === 'form-img-file-input') {
+      if (e.target.files && e.target.files[0]) {
+        loadImageFromFile(e.target.files[0]).then(function(dataUrl) {
+          return compressImage(dataUrl);
+        }).then(function(compressed) {
+          if (!state._formImages) state._formImages = [];
+          state._formImages.push(compressed);
+          refreshFormImages();
+        }).catch(function(err) {
+          showToast('图片加载失败: ' + err.message);
+        });
+        e.target.value = '';
+      }
+    }
+  });
+
+  // File input: handle smart paste screenshot selection (body delegation since element is dynamically rendered)
+  document.body.addEventListener('change', function(e) {
+    if (e.target.id === 'smart-paste-file-input') {
+      if (e.target.files && e.target.files[0]) {
+        loadImageFromFile(e.target.files[0]).then(function(dataUrl) {
+          handleSmartPasteImage(dataUrl);
+        }).catch(function(err) {
+          const resultEl = document.getElementById('smart-paste-result');
+          if (resultEl) resultEl.textContent = '❌ ' + err.message;
+        });
+        e.target.value = '';
+      }
+    }
+  });
+
+  // Paste event: handle image paste (Ctrl+V) on the entire document
+  document.addEventListener('paste', function(e) {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+
+    // Check if trade form modal is open → add image to form attachments
+    const modalOpen = document.getElementById('modal-overlay').classList.contains('open');
+    const smartSection = document.getElementById('smart-paste-section');
+    const smartVisible = smartSection && smartSection.classList.contains('show');
+
+    for (let item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const blob = item.getAsFile();
+
+        if (smartVisible) {
+          // Smart paste mode: OCR the image
+          loadImageFromFile(blob).then(function(dataUrl) {
+            const textPanel = document.getElementById('smart-paste-text-panel');
+            const imgPanel = document.getElementById('smart-paste-img-panel');
+            const textTab = document.getElementById('smart-paste-text-tab');
+            const imgTab = document.getElementById('smart-paste-img-tab');
+            if (textPanel) textPanel.style.display = 'none';
+            if (imgPanel) imgPanel.style.display = 'block';
+            if (textTab) textTab.classList.remove('active');
+            if (imgTab) imgTab.classList.add('active');
+            handleSmartPasteImage(dataUrl);
+          }).catch(function(err) {
+            const resultEl = document.getElementById('smart-paste-result');
+            if (resultEl) resultEl.textContent = '❌ ' + err.message;
+          });
+        } else if (modalOpen) {
+          // Trade form mode: add image as attachment
+          loadImageFromFile(blob).then(function(dataUrl) {
+            return compressImage(dataUrl);
+          }).then(function(compressed) {
+            if (!state._formImages) state._formImages = [];
+            state._formImages.push(compressed);
+            refreshFormImages();
+            showToast('截图已添加 ✓');
+          }).catch(function(err) {
+            showToast('图片加载失败');
+          });
+        }
+        break;
+      }
+    }
+  });
+
+  // Main content delegation
+  document.getElementById('main-content').addEventListener('click', function(e) {
+    // Trade card copy
+    const copyBtn = e.target.closest('.btn-copy');
+    if (copyBtn) {
+      const id = copyBtn.dataset.id;
+      const trade = state.trades.find(t => t.id === id);
+      if (trade) openCopyDialog(trade);
+      return;
+    }
+    // Trade card edit
+    const editBtn = e.target.closest('.btn-edit');
+    if (editBtn) {
+      const id = editBtn.dataset.id;
+      const trade = state.trades.find(t => t.id === id);
+      if (trade) openModal(trade);
+      return;
+    }
+    // Trade card delete
+    const delBtn = e.target.closest('.btn-delete');
+    if (delBtn) {
+      const id = delBtn.dataset.id;
+      const trade = state.trades.find(t => t.id === id);
+      const name = trade ? trade.symbol : '未知';
+      showConfirm('确认删除交易「' + name + '」？\n此操作不可恢复。', function() {
+        deleteTrade(id);
+        refreshState();
+        render();
+        showToast('已删除 ✓');
+      });
+      return;
+    }
+    // Filter chips
+    const chip = e.target.closest('.filter-chip');
+    if (chip && chip.dataset.filter) {
+      const filterKey = chip.dataset.filter;
+      const filterVal = chip.dataset.val;
+      state.filters[filterKey] = filterVal;
+      render();
+      return;
+    }
+    // Period selector (stats tab)
+    const periodChip = e.target.closest('[data-period]');
+    if (periodChip) {
+      document.querySelectorAll('[data-period]').forEach(c => c.classList.remove('active'));
+      periodChip.classList.add('active');
+      // Re-render stats with period filter
+      applyPeriodFilter(periodChip.dataset.period);
+      drawCharts();
+      return;
+    }
+  });
+
+  // Search input (debounced)
+  document.getElementById('main-content').addEventListener('input', debounce(function(e) {
+    if (e.target.id === 'search-input') {
+      state.filters.search = e.target.value;
+      render();
+    }
+  }, 250));
+
+  // Sort select
+  document.getElementById('main-content').addEventListener('change', function(e) {
+    if (e.target.id === 'sort-select') {
+      state.filters.sort = e.target.value;
+      render();
+    }
+    // Mark price change in positions
+    if (e.target.classList.contains('mark-input')) {
+      const id = e.target.dataset.id;
+      const val = parseFloat(e.target.value);
+      updateTrade(id, { markPrice: isNaN(val) ? null : val });
+      refreshState();
+      render();
+    }
+  });
+
+  // Settings: body-level event delegation (always attached, regardless of active tab)
+  document.body.addEventListener('click', function(e) {
+    const schemeBtn = e.target.closest('#color-scheme-toggle .segmented-btn');
+    if (schemeBtn) {
+      const scheme = schemeBtn.dataset.scheme;
+      state.settings.colorScheme = scheme;
+      saveSettings(state.settings);
+      applyColorScheme();
+      refreshState();
+      render();
+      showToast(scheme === 'chinese' ? '已切换为红涨绿跌' : '已切换为红跌绿涨');
+      return;
+    }
+
+    // Default currency change
+    if (e.target.id === 'default-currency') {
+      state.settings.defaultCurrency = e.target.value;
+      saveSettings(state.settings);
+      showToast('默认货币已设为 ' + (CURRENCIES[e.target.value]?.name || e.target.value));
+      return;
+    }
+
+    // Export
+    if (e.target.closest('#btn-export')) {
+      exportCSV();
+      return;
+    }
+    // Import
+    if (e.target.closest('#btn-import')) {
+      document.getElementById('csv-file-input').click();
+      return;
+    }
+    // Clear data
+    if (e.target.closest('#btn-clear')) {
+      showConfirm('确认清除所有交易记录？\n此操作不可恢复！', function() {
+        localStorage.removeItem(STORAGE_KEY_TRADES);
+        refreshState();
+        render();
+        showToast('所有数据已清除 ✓');
+      });
+      return;
+    }
+    // Install
+    if (e.target.closest('#btn-install')) {
+      if (window._deferredPrompt) {
+        window._deferredPrompt.prompt();
+        window._deferredPrompt.userChoice.then(() => {
+          window._deferredPrompt = null;
+          const banner = document.getElementById('install-banner');
+          if (banner) banner.classList.remove('show');
+        });
+      }
+      return;
+    }
+    // Position card: click to edit (navigate to trade edit)
+    const posCard = e.target.closest('.position-card');
+    if (posCard && !e.target.closest('.mark-input') && !e.target.closest('input')) {
+      const id = posCard.dataset.id;
+      const trade = state.trades.find(t => t.id === id);
+      if (trade) openModal(trade);
+      return;
+    }
+  });
+
+  // CSV file input
+  document.getElementById('csv-file-input').addEventListener('change', function(e) {
+    if (this.files && this.files[0]) {
+      importCSV(this.files[0]);
+      this.value = '';
+    }
+  });
+}
+
+function applyPeriodFilter(period) {
+  if (period === 'all') {
+    // Default already uses all closed trades
+    return;
+  }
+  const now = new Date();
+  const thisMonth = now.getMonth();
+  const thisYear = now.getFullYear();
+
+  // Filter the chart data and rebuild stats
+  const closed = state.trades.filter(t => t.status === 'closed');
+  let filtered;
+  if (period === 'this-month') {
+    filtered = closed.filter(t => {
+      if (!t.exitDate) return false;
+      const d = new Date(t.exitDate + 'T00:00:00');
+      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    });
+  } else if (period === 'this-year') {
+    filtered = closed.filter(t => {
+      if (!t.exitDate) return false;
+      const d = new Date(t.exitDate + 'T00:00:00');
+      return d.getFullYear() === thisYear;
+    });
+  } else {
+    filtered = closed;
+  }
+
+  // Update KPI cards
+  const total = filtered.length;
+  const wins = filtered.filter(t => (getTradePnL(t) || 0) > 0);
+  const losses = filtered.filter(t => (getTradePnL(t) || 0) < 0);
+  const winRate = total > 0 ? (wins.length / total * 100) : 0;
+  const totalPnL = filtered.reduce((s, t) => s + (getTradePnL(t) || 0), 0);
+  const avgWin = wins.length > 0 ? wins.reduce((s, t) => s + (getTradePnL(t) || 0), 0) / wins.length : 0;
+  const avgLoss = losses.length > 0 ? losses.reduce((s, t) => s + (getTradePnL(t) || 0), 0) / losses.length : 0;
+  const profitFactor = Math.abs(avgLoss) > 0 ? Math.abs(avgWin / avgLoss) : 0;
+
+  const kpiVals = document.querySelectorAll('.kpi-val');
+  if (kpiVals.length >= 4) {
+    kpiVals[0].textContent = total;
+    kpiVals[1].textContent = winRate.toFixed(1) + '%';
+    const pnlCls = totalPnL > 0 ? 'text-profit' : (totalPnL < 0 ? 'text-loss' : '');
+    kpiVals[2].className = 'kpi-val ' + pnlCls;
+    kpiVals[2].textContent = formatCurrency(totalPnL);
+    kpiVals[3].textContent = profitFactor > 0 ? profitFactor.toFixed(2) : '--';
+  }
+  const kpiSubs = document.querySelectorAll('.kpi-sub');
+  if (kpiSubs.length >= 2) {
+    kpiSubs[0].textContent = '盈' + wins.length + ' / 亏' + losses.length;
+    kpiSubs[1].textContent = '均盈' + formatCurrency(avgWin) + ' / 均亏' + formatCurrency(avgLoss);
+  }
+}
+
+/* ================================================================
+   SECTION 10: PWA Setup
+   ================================================================ */
+function setupPWA() {
+  // Generate proper PNG icon via Canvas (Android requires PNG, not SVG)
+  function generateIcon(size) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    // Background
+    const gradient = ctx.createLinearGradient(0, 0, size, size);
+    gradient.addColorStop(0, '#3182CE');
+    gradient.addColorStop(1, '#2B6CB0');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, size, size, size * 0.18);
+    ctx.fill();
+    // Icon: a simple chart/candlestick
+    const cx = size / 2, cy = size / 2;
+    const barW = size * 0.08;
+    // Candle 1 (green/up)
+    ctx.fillStyle = '#68D391';
+    ctx.fillRect(cx - size * 0.22, cy + size * 0.05, barW, size * 0.18);
+    ctx.fillRect(cx - size * 0.22 + barW/2 - 1, cy - size * 0.05, 2, size * 0.28);
+    // Candle 2 (red/down)
+    ctx.fillStyle = '#FC8181';
+    ctx.fillRect(cx + size * 0.02, cy - size * 0.08, barW, size * 0.14);
+    ctx.fillRect(cx + size * 0.02 + barW/2 - 1, cy - size * 0.18, 2, size * 0.24);
+    // Candle 3 (green/up)
+    ctx.fillStyle = '#68D391';
+    ctx.fillRect(cx + size * 0.22, cy - size * 0.02, barW, size * 0.2);
+    ctx.fillRect(cx + size * 0.22 + barW/2 - 1, cy - size * 0.14, 2, size * 0.32);
+    // Trend line
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = size * 0.03;
+    ctx.beginPath();
+    ctx.moveTo(cx - size * 0.26, cy + size * 0.12);
+    ctx.lineTo(cx - size * 0.02, cy - size * 0.05);
+    ctx.lineTo(cx + size * 0.26, cy - size * 0.01);
+    ctx.stroke();
+
+    return canvas.toDataURL('image/png');
+  }
+
+  const icon192 = generateIcon(192);
+  const icon512 = generateIcon(512);
+
+  const manifest = {
+    name: '交易日志',
+    short_name: '交易日志',
+    description: '个人交易记录管理 - 支持多币种/股票/加密货币/期货',
+    start_url: '.',
+    display: 'standalone',
+    background_color: '#F7FAFC',
+    theme_color: '#1A202C',
+    orientation: 'portrait',
+    icons: [
+      { src: icon192, sizes: '192x192', type: 'image/png' },
+      { src: icon512, sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ],
+  };
+
+  // Use Blob URL for manifest (avoids deprecated unescape)
+  const manifestStr = JSON.stringify(manifest);
+  const manifestBlob = new Blob([manifestStr], { type: 'application/json' });
+  const manifestUrl = URL.createObjectURL(manifestBlob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = manifestUrl;
+  document.head.appendChild(link);
+
+  // Service Worker (via Blob)
+  if ('serviceWorker' in navigator) {
+    const swCode = `
+      const CACHE = 'trade-journal-v1';
+      self.addEventListener('install', e => {
+        e.waitUntil(
+          caches.open(CACHE).then(c => c.addAll(['.']))
+        );
+      });
+      self.addEventListener('fetch', e => {
+        e.respondWith(
+          caches.match(e.request).then(r => r || fetch(e.request))
+        );
+      });
+    `;
+    try {
+      const blob = new Blob([swCode], { type: 'application/javascript' });
+      const swUrl = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swUrl).catch(() => {
+        // Blob SW may not work on file:// — that's okay
+      });
+    } catch (e) {
+      // Service worker not supported or blocked
+    }
+  }
+
+  // Install prompt
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    window._deferredPrompt = e;
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.classList.add('show');
+  });
+
+  // Detect standalone mode
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    const banner = document.getElementById('install-banner');
+    if (banner) banner.classList.remove('show');
+  }
+}
+
+/* ================================================================
+   SECTION 11: Storage event for cross-tab sync
+   ================================================================ */
+window.addEventListener('storage', function(e) {
+  if (e.key === STORAGE_KEY_TRADES || e.key === STORAGE_KEY_SETTINGS) {
+    refreshState();
+    render();
+  }
+});
+
+/* ================================================================
+   SECTION 12: Initialization
+   ================================================================ */
+function init() {
+  refreshState();
+  render();
+  setupEvents();
+  setupPWA();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
